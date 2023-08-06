@@ -3,7 +3,7 @@
 public interface IFileSystem
 {
     void CreateDirectory(string path);
-    FileStream OpenFile(string path, FileMode mode, FileAccess access);
+    Stream OpenFile(string path, FileMode mode, FileAccess access);
     string[] ListFiles(string path);
     void DeleteFile(string path);
 }
@@ -15,7 +15,7 @@ public class FileSystem : IFileSystem
         Directory.CreateDirectory(path);
     }
 
-    public FileStream OpenFile(string path, FileMode mode, FileAccess access)
+    public Stream OpenFile(string path, FileMode mode, FileAccess access)
     {
         return File.Open(path, mode, access);
     }

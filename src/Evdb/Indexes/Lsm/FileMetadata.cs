@@ -13,19 +13,18 @@ public class FileMetadata
 
     public FileId Id => new(Type, Number);
 
-    public FileMetadata(FileType type, ulong number, IndexKey? minKey = default, IndexKey? maxKey = default)
+    public FileMetadata(string path, FileType type, ulong number, IndexKey? minKey = default, IndexKey? maxKey = default)
     {
         Type = type;
         Number = number;
         MinKey = minKey;
         MaxKey = maxKey;
 
-        // FIXME.
         Path = type switch
         {
-            FileType.Manifest => FileName.Manifest("db", number),
-            FileType.Table => FileName.Table("db", number),
-            FileType.Log => FileName.Log("db", number),
+            FileType.Manifest => FileName.Manifest(path, number),
+            FileType.Table => FileName.Table(path, number),
+            FileType.Log => FileName.Log(path, number),
             _ => throw new NotImplementedException()
         };
     }

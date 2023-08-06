@@ -7,7 +7,7 @@ namespace Evdb.Indexes.Common;
 public sealed class LogWriter : IDisposable
 {
     private bool _disposed;
-    private readonly FileStream _file;
+    private readonly Stream _file;
     private readonly BinaryWriter _writer;
 
     public LogWriter(IFileSystem fs, string path)

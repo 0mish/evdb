@@ -23,37 +23,25 @@ public sealed class LsmIndex : IIndex
     // Other.
     private readonly IFileSystem _fs;
 
-    public string Path { get; }
-
     public LsmIndex(LsmIndexOptions options)
     {
         ArgumentNullException.ThrowIfNull(options, nameof(options));
         ArgumentNullException.ThrowIfNull(options.Path, nameof(options.Path));
         ArgumentNullException.ThrowIfNull(options.FileSystem, nameof(options.FileSystem));
 
-        Path = options.Path;
-
-        // Create the locks.
-        _sync = new object();
-
-        // Create the index directory.
         _fs = options.FileSystem;
-        _fs.CreateDirectory(Path);
 
-        // Create compaction infrastructure.
-        _compactionQueue = new CompactionQueue();
-        _compactionThread = new CompactionThread(_compactionQueue);
-
-        // Create or load manifest file.
-        //
         // TODO:
         //
         // Re-consider the API design. We are performing IO in the constructor, which may not be expected? Perhaps
         // people would like to control when IO occurs.
-        _manifest = new Manifest(_fs);
+        _manifest = new Manifest(_fs, options.Path);
 
-        // Create the in memory tables.
-        _l0 = new VirtualTable(_fs, new FileMetadata(FileType.Log, _manifest.NextFileNumber()), options.VirtualTableSize);
+        _sync = new object();
+        _compactionQueue = new CompactionQueue();
+        _compactionThread = new CompactionThread(_compactionQueue);
+
+        _l0 = new VirtualTable(_fs, new FileMetadata(_manifest.Path, FileType.Log, _manifest.NextFileNumber()), options.VirtualTableSize);
         _l0n = new List<VirtualTable>();
     }
 
@@ -73,7 +61,7 @@ public sealed class LsmIndex : IIndex
                 _compactionQueue.Enqueue(new CompactionJob(_l0, OnCompacted));
 
                 _l0n.Add(_l0);
-                _l0 = new VirtualTable(_fs, new FileMetadata(FileType.Log, _manifest.NextFileNumber()), _l0.MaxSize);
+                _l0 = new VirtualTable(_fs, new FileMetadata(_manifest.Path, FileType.Log, _manifest.NextFileNumber()), _l0.MaxSize);
             }
         }
 
@@ -99,7 +87,7 @@ public sealed class LsmIndex : IIndex
 
         // Make a copy of the _l0n to avoid holding locks for long.
         VirtualTable[] l0n;
-        ManifestRevision revision = _manifest.Current;
+        ManifestState revision = _manifest.Current;
 
         lock (_sync)
         {
@@ -115,12 +103,19 @@ public sealed class LsmIndex : IIndex
             }
         }
 
-        foreach (FileMetadata file in revision.Files)
+        foreach (FileId fileId in revision.Files)
         {
+#if false
+            if (_manifest.Resolve(fileId, out FileMetadata? file))
+            {
+
+            }
+
             if (file.TryGetTable(out PhysicalTable? table) && table.TryGet(ikey, out value))
             {
                 return true;
             }
+#endif
         }
 
         return false;
@@ -130,7 +125,7 @@ public sealed class LsmIndex : IIndex
     {
         ManifestEdit edit = new()
         {
-            FilesRegistered = new List<FileId>() { ptable.Metadata.Id }
+            FilesRegistered = new[] { ptable.Metadata.Id }
         };
 
         _manifest.Commit(edit);

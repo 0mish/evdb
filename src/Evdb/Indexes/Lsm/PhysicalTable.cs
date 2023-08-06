@@ -12,7 +12,7 @@ public sealed class PhysicalTable : IDisposable
     private readonly string _minKey;
     private readonly long _dataPosition;
 
-    private readonly FileStream _file;
+    private readonly Stream _file;
     private readonly BinaryReader _reader;
 
     public FileMetadata Metadata { get; }

@@ -81,9 +81,10 @@ public sealed class VirtualTable : IDisposable
     // TODO: Consider empty tables.
     public PhysicalTable Flush()
     {
-        FileMetadata metadata = new(FileType.Table, Metadata.Number, _minKey, _maxKey);
+        // FIXME.
+        FileMetadata metadata = new(path: "db", FileType.Table, Metadata.Number, _minKey, _maxKey);
 
-        using (FileStream file = _fs.OpenFile(metadata.Path, FileMode.Create, FileAccess.Write))
+        using (Stream file = _fs.OpenFile(metadata.Path, FileMode.Create, FileAccess.Write))
         using (BinaryWriter writer = new(file, Encoding.UTF8, leaveOpen: true))
         {
             BloomFilter filter = new(size: 4096);

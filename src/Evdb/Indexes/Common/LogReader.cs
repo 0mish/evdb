@@ -7,7 +7,7 @@ namespace Evdb.Indexes.Common;
 public sealed class LogReader
 {
     private bool _disposed;
-    private readonly FileStream _file;
+    private readonly Stream _file;
     private readonly BinaryReader _reader;
 
     public LogReader(IFileSystem fs, string path)

@@ -7,7 +7,7 @@ public sealed class WriteAheadLog : IDisposable
 {
     private bool _disposed;
 
-    private readonly FileStream _file;
+    private readonly Stream _file;
     private readonly BinaryWriter _writer;
 
     public FileMetadata Metadata { get; }
