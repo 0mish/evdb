@@ -5,14 +5,16 @@ namespace Evdb.Tests.Indexes.Lsm;
 
 public class ManifestTests
 {
+    private object _sync;
     private FileSystem _fs;
     private Manifest _manifest;
 
     [SetUp]
     public void SetUp()
     {
+        _sync = new object();
         _fs = new FileSystem();
-        _manifest = new Manifest(_fs, "manifest-test");
+        _manifest = new Manifest(_fs, "manifest-test", _sync);
     }
 
     [TearDown]
@@ -36,8 +38,9 @@ public class ManifestTests
     {
         Assert.Multiple(() =>
         {
-            Assert.That(() => new Manifest(null!, ""), Throws.ArgumentNullException);
-            Assert.That(() => new Manifest(new FileSystem(), null!), Throws.ArgumentNullException);
+            Assert.That(() => new Manifest(null!, "", null!), Throws.ArgumentNullException);
+            Assert.That(() => new Manifest(new FileSystem(), null!, null!), Throws.ArgumentNullException);
+            Assert.That(() => new Manifest(new FileSystem(), "", null!), Throws.ArgumentNullException);
         });
     }
 
@@ -139,6 +142,10 @@ public class ManifestTests
     [Ignore("Resolve is not implemented.")]
     public void Resolve__()
     {
+        // Arrange
 
+        // Act
+
+        // Assert
     }
 }

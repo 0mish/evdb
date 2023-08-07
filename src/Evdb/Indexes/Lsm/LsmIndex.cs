@@ -29,15 +29,16 @@ public sealed class LsmIndex : IIndex
         ArgumentNullException.ThrowIfNull(options.Path, nameof(options.Path));
         ArgumentNullException.ThrowIfNull(options.FileSystem, nameof(options.FileSystem));
 
+        _sync = new object();
+
         _fs = options.FileSystem;
 
         // TODO:
         //
         // Re-consider the API design. We are performing IO in the constructor, which may not be expected? Perhaps
         // people would like to control when IO occurs.
-        _manifest = new Manifest(_fs, options.Path);
+        _manifest = new Manifest(_fs, options.Path, _sync);
 
-        _sync = new object();
         _compactionQueue = new CompactionQueue();
         _compactionThread = new CompactionThread(_compactionQueue);
 
@@ -142,7 +143,6 @@ public sealed class LsmIndex : IIndex
 
         lock (_sync)
         {
-            // FIXME: Manifest.Commit performs IO, and we're doing it while holding the lock.
             _manifest.Commit(edit);
             _l0n.Remove(vtable);
         }

@@ -1,4 +1,5 @@
 ﻿using Evdb.IO;
+using Evdb.Threading;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
@@ -12,6 +13,7 @@ public sealed class Manifest : IDisposable
     private ulong _versionNumber;
     private ulong _fileNumber;
 
+    private readonly object _sync;
     private readonly Stream _file;
     private readonly BinaryWriter _writer;
     private readonly IFileSystem _fs;
@@ -21,10 +23,13 @@ public sealed class Manifest : IDisposable
     public ulong FileNumber => _fileNumber;
     public ManifestState Current { get; private set; }
 
-    public Manifest(IFileSystem fs, string path)
+    public Manifest(IFileSystem fs, string path, object sync)
     {
         ArgumentNullException.ThrowIfNull(fs, nameof(fs));
         ArgumentNullException.ThrowIfNull(path, nameof(path));
+        ArgumentNullException.ThrowIfNull(sync, nameof(sync));
+
+        _sync = sync;
 
         _fs = fs;
         _fs.CreateDirectory(path);
@@ -95,18 +100,18 @@ public sealed class Manifest : IDisposable
             state = state.Previous;
         }
 
-        // Remove all files which were found to be dead.
+        // Remove all files which were marked dead.
         foreach (FileId fileId in dead)
         {
-            if (Resolve(fileId, out FileMetadata? metadata))
-            {
-                _fs.DeleteFile(metadata.Path);
-            }
+            string path = fileId.GetPath(Path);
+
+            _fs.DeleteFile(path);
         }
     }
 
     public void Commit(ManifestEdit edit)
     {
+        // FIXME: What is up here?
         ulong versionNo = edit.VersionNumber ?? VersionNumber;
         ulong fileNo = edit.FileNumber ?? FileNumber;
 
@@ -138,9 +143,21 @@ public sealed class Manifest : IDisposable
         @new.Previous = Current;
         Current = @new;
 
-        LogEdit(edit);
+        bool lockReleased = false;
 
-        _writer.Flush();
+        try
+        {
+            MonitorHelper.Exit(_sync, out lockReleased);
+
+            LogEdit(edit);
+        }
+        finally
+        {
+            if (lockReleased)
+            {
+                Monitor.Enter(_sync);
+            }
+        }
     }
 
     private void LogEdit(in ManifestEdit edit)
@@ -149,6 +166,8 @@ public sealed class Manifest : IDisposable
         EncodeUInt64(edit.FileNumber);
         EncodeFileIdArray(edit.FilesUnregistered);
         EncodeFileIdArray(edit.FilesRegistered);
+
+        _writer.Flush();
 
         void EncodeUInt64(ulong? value)
         {
