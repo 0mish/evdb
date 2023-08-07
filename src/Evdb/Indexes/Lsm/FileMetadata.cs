@@ -8,8 +8,7 @@ public class FileMetadata
     public ulong Number { get; }
     public IndexKey? MinKey { get; }
     public IndexKey? MaxKey { get; }
-
-    public string Path { get; set; } = default!;
+    public string Path { get; }
 
     public FileId Id => new(Type, Number);
 
@@ -20,19 +19,6 @@ public class FileMetadata
         MinKey = minKey;
         MaxKey = maxKey;
 
-        Path = type switch
-        {
-            FileType.Manifest => FileName.Manifest(path, number),
-            FileType.Table => FileName.Table(path, number),
-            FileType.Log => FileName.Log(path, number),
-            _ => throw new NotImplementedException()
-        };
-    }
-
-    public bool TryGetTable([MaybeNullWhen(false)] out PhysicalTable table)
-    {
-        table = default;
-
-        return false;
+        Path = Id.GetPath(path);
     }
 }

@@ -17,14 +17,11 @@ public class MemoryFileSystem : IFileSystem
 
     }
 
-    public void DeleteFile(string path)
+    public bool DeleteFile(string path)
     {
         Node? node = GetNode(GetSegments(path), out DirectoryNode closestNode);
 
-        if (node is not null)
-        {
-            closestNode.Children.Remove(node);
-        }
+        return node is not null && closestNode.Children.Remove(node);
     }
 
     public string[] ListFiles(string path)

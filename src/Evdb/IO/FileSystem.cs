@@ -5,10 +5,10 @@ public interface IFileSystem
     void CreateDirectory(string path);
     Stream OpenFile(string path, FileMode mode, FileAccess access);
     string[] ListFiles(string path);
-    void DeleteFile(string path);
+    bool DeleteFile(string path);
 }
 
-public class FileSystem : IFileSystem
+public sealed class FileSystem : IFileSystem
 {
     public void CreateDirectory(string path)
     {
@@ -25,8 +25,11 @@ public class FileSystem : IFileSystem
         return Directory.GetFiles(path);
     }
 
-    public void DeleteFile(string path)
+    public bool DeleteFile(string path)
     {
-        File.Delete(path);
+        try { File.Delete(path); }
+        catch { return false; }
+
+        return true;
     }
 }

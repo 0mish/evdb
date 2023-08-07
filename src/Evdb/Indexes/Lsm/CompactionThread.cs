@@ -1,6 +1,4 @@
-﻿using Evdb.IO;
-
-namespace Evdb.Indexes.Lsm;
+﻿namespace Evdb.Indexes.Lsm;
 
 public sealed class CompactionThread : IDisposable
 {

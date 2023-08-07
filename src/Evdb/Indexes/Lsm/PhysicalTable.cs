@@ -1,10 +1,14 @@
 ﻿using Evdb.Indexes.Common;
 using Evdb.IO;
+using System.Diagnostics;
 
 namespace Evdb.Indexes.Lsm;
 
+[DebuggerDisplay("{DebuggerDisplay,nq}")]
 public sealed class PhysicalTable : IDisposable
 {
+    private string DebuggerDisplay => $"PhysicalTable {Metadata.Path}";
+
     private bool _disposed;
 
     private readonly BloomFilter _filter;

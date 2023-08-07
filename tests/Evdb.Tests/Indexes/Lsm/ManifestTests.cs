@@ -68,20 +68,77 @@ public class ManifestTests
     }
 
     [Test]
-    public void Commit__FilesAdded()
+    public void Commit__Files_Added_Removed()
     {
         // Arrange
-        ManifestEdit edit = new()
+        ManifestEdit edit0 = new()
         {
-            FilesRegistered = new[] { new FileId(FileType.Table, 0) }
+            FilesRegistered = new[]
+            {
+                new FileId(FileType.Table, 0),
+                new FileId(FileType.Table, 1),
+                new FileId(FileType.Table, 2)
+            }
+        };
+
+        ManifestEdit edit1 = new()
+        {
+            FilesUnregistered = new[]
+            {
+                new FileId(FileType.Table, 0)
+            }
         };
 
         // Act
-        _manifest.Commit(edit);
+        _manifest.Commit(edit0);
+        _manifest.Commit(edit1);
 
         // Assert
         ManifestState state = _manifest.Current;
 
-        Assert.That(state.Files, Is.EquivalentTo(new FileId[] { new FileId(FileType.Table, 0) }));
+        Assert.That(state.Files, Is.EquivalentTo(new FileId[]
+        {
+            new FileId(FileType.Table, 1),
+            new FileId(FileType.Table, 2)
+        }));
+    }
+
+    [Test]
+    [Ignore("This is currently broken because Resolve is not implemented.")]
+    public void Clean__Dead_Files_Deleted()
+    {
+        // Arrange
+        ManifestEdit edit0 = new()
+        {
+            FilesRegistered = new[]
+            {
+                new FileId(FileType.Table, 0),
+                new FileId(FileType.Table, 1),
+                new FileId(FileType.Table, 2)
+            }
+        };
+
+        ManifestEdit edit1 = new()
+        {
+            FilesUnregistered = new[]
+            {
+                new FileId(FileType.Table, 0)
+            }
+        };
+
+        // Act
+        _manifest.Commit(edit0);
+        _manifest.Commit(edit1);
+        _manifest.Clean();
+
+        // Assert
+        // TODO: Assert that files were deleted.
+    }
+
+    [Test]
+    [Ignore("Resolve is not implemented.")]
+    public void Resolve__()
+    {
+
     }
 }

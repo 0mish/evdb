@@ -12,7 +12,6 @@ public sealed class Manifest : IDisposable
     private ulong _versionNumber;
     private ulong _fileNumber;
 
-    private readonly object _sync;
     private readonly Stream _file;
     private readonly BinaryWriter _writer;
     private readonly IFileSystem _fs;
@@ -33,7 +32,6 @@ public sealed class Manifest : IDisposable
         // TODO: Locate latest valid manifest file.
         FileMetadata metadata = new(path, FileType.Manifest, number: 0);
 
-        _sync = new object();
         _file = fs.OpenFile(metadata.Path, FileMode.OpenOrCreate, FileAccess.Write);
         _writer = new BinaryWriter(_file, Encoding.UTF8, leaveOpen: true);
 
@@ -63,28 +61,38 @@ public sealed class Manifest : IDisposable
     public void Clean()
     {
         List<FileId> dead = new();
+        List<FileId> alive = Current.Files.ToList();
+        ManifestState? state = Current.Previous;
 
-        lock (_sync)
+        while (state != null)
         {
-            List<FileId> alive = Current.Files.ToList();
-            ManifestState? state = Current.Previous;
-
-            while (state != null)
+            // If state is dead, i.e. has a reference count of zero. Remove the files in it which is not in the alive set.
+            if (state.Unreference())
             {
-                // If state is dead, i.e. has a reference count of zero. Remove the files in it which is not in the alive set.
-                if (state.Unreference())
+                foreach (FileId fileId in state.Files)
                 {
-                    foreach (FileId fileId in state.Files)
+                    if (!alive.Contains(fileId))
                     {
-                        if (!alive.Contains(fileId))
-                        {
-                            dead.Add(fileId);
-                        }
+                        dead.Add(fileId);
                     }
                 }
 
-                state = state.Previous;
+                // Remove the state from the state linked-list.
+                ManifestState? next = state.Next;
+                ManifestState? prev = state.Previous;
+
+                if (prev != null)
+                {
+                    prev.Next = next;
+                }
+
+                if (next != null)
+                {
+                    next.Previous = prev;
+                }
             }
+
+            state = state.Previous;
         }
 
         // Remove all files which were found to be dead.
@@ -99,43 +107,36 @@ public sealed class Manifest : IDisposable
 
     public void Commit(ManifestEdit edit)
     {
-        lock (_sync)
+        ulong versionNo = edit.VersionNumber ?? VersionNumber;
+        ulong fileNo = edit.FileNumber ?? FileNumber;
+
+        edit.VersionNumber ??= VersionNumber;
+        edit.FileNumber ??= FileNumber;
+
+        // TODO: Consider using a sorted set instead.
+        List<FileId> files = new(Current.Files);
+
+        if (edit.FilesUnregistered != null)
         {
-            ulong versionNo = edit.VersionNumber ?? VersionNumber;
-            ulong fileNo = edit.FileNumber ?? FileNumber;
-
-            edit.VersionNumber ??= VersionNumber;
-            edit.FileNumber ??= FileNumber;
-
-            // TODO: Consider using a sorted set instead.
-            List<FileId> files = new(Current.Files);
-
-            if (edit.FilesUnregistered != null)
+            foreach (FileId fileId in edit.FilesUnregistered)
             {
-                foreach (FileId fileId in edit.FilesUnregistered)
-                {
-                    files.Remove(fileId);
-                }
+                files.Remove(fileId);
             }
-
-            if (edit.FilesRegistered != null)
-            {
-                foreach (FileId fileId in edit.FilesRegistered)
-                {
-                    files.Add(fileId);
-                }
-            }
-
-            // Append the new state to the front of the state list.
-            ManifestState @new = new(versionNo, fileNo, files.ToImmutableArray());
-
-            Current.Unreference();
-            Current.Next = @new;
-            @new.Previous = Current;
-
-            Current = @new;
-            Current.Reference();
         }
+
+        if (edit.FilesRegistered != null)
+        {
+            foreach (FileId fileId in edit.FilesRegistered)
+            {
+                files.Add(fileId);
+            }
+        }
+
+        // Append the new state to the front of the state list.
+        ManifestState @new = new(versionNo, fileNo, files.ToImmutableArray());
+        Current.Next = @new;
+        @new.Previous = Current;
+        Current = @new;
 
         LogEdit(edit);
 
@@ -146,8 +147,8 @@ public sealed class Manifest : IDisposable
     {
         EncodeUInt64(edit.VersionNumber);
         EncodeUInt64(edit.FileNumber);
-        EncodeFileIds(edit.FilesUnregistered);
-        EncodeFileIds(edit.FilesRegistered);
+        EncodeFileIdArray(edit.FilesUnregistered);
+        EncodeFileIdArray(edit.FilesRegistered);
 
         void EncodeUInt64(ulong? value)
         {
@@ -159,7 +160,7 @@ public sealed class Manifest : IDisposable
             }
         }
 
-        void EncodeFileIds(FileId[]? value)
+        void EncodeFileIdArray(FileId[]? value)
         {
             if (value == null)
             {

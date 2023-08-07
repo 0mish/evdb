@@ -1,12 +1,15 @@
-﻿using System.Text;
+﻿using System.Diagnostics;
+using System.Text;
 using Evdb.Indexes.Common;
 using Evdb.IO;
 
 namespace Evdb.Indexes.Lsm;
 
-// TODO: Implement concurrent arena skip-list instead.
+[DebuggerDisplay("{DebuggerDisplay,nq}")]
 public sealed class VirtualTable : IDisposable
 {
+    private string DebuggerDisplay => $"PhysicalTable {Metadata.Path}";
+
     private bool _disposed;
 
     private IndexKey? _minKey;

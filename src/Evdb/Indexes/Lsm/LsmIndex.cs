@@ -87,35 +87,47 @@ public sealed class LsmIndex : IIndex
 
         // Make a copy of the _l0n to avoid holding locks for long.
         VirtualTable[] l0n;
-        ManifestState revision = _manifest.Current;
+        ManifestState? state = null;
 
-        lock (_sync)
+        try
         {
-            l0n = _l0n.ToArray();
-        }
-
-        // FIXME: l0n is not sorted by newest to oldest.
-        foreach (VirtualTable table in l0n)
-        {
-            if (table.TryGet(ikey, out value))
+            lock (_sync)
             {
-                return true;
+                l0n = _l0n.ToArray();
+                state = _manifest.Current;
+                state.Reference();
             }
-        }
 
-        foreach (FileId fileId in revision.Files)
-        {
+            // FIXME: l0n is not sorted by newest to oldest.
+            foreach (VirtualTable table in l0n)
+            {
+                if (table.TryGet(ikey, out value))
+                {
+                    return true;
+                }
+            }
+
+            foreach (FileId fileId in state.Files)
+            {
 #if false
-            if (_manifest.Resolve(fileId, out FileMetadata? file))
-            {
+                if (_manifest.Resolve(fileId, out FileMetadata? file))
+                {
 
-            }
+                }
 
-            if (file.TryGetTable(out PhysicalTable? table) && table.TryGet(ikey, out value))
-            {
-                return true;
-            }
+                if (file.TryGetTable(out PhysicalTable? table) && table.TryGet(ikey, out value))
+                {
+                    return true;
+                }
 #endif
+            }
+        }
+        finally
+        {
+            lock (_sync)
+            {
+                state?.Unreference();
+            }
         }
 
         return false;
@@ -128,10 +140,10 @@ public sealed class LsmIndex : IIndex
             FilesRegistered = new[] { ptable.Metadata.Id }
         };
 
-        _manifest.Commit(edit);
-
         lock (_sync)
         {
+            // FIXME: Manifest.Commit performs IO, and we're doing it while holding the lock.
+            _manifest.Commit(edit);
             _l0n.Remove(vtable);
         }
     }
