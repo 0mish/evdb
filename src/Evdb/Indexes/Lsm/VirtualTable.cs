@@ -8,7 +8,7 @@ namespace Evdb.Indexes.Lsm;
 [DebuggerDisplay("{DebuggerDisplay,nq}")]
 public sealed class VirtualTable : IDisposable
 {
-    private string DebuggerDisplay => $"PhysicalTable {Metadata.Path}";
+    private string DebuggerDisplay => $"VirtualTable {Metadata.Path}";
 
     private bool _disposed;
 
