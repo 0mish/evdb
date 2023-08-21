@@ -93,20 +93,14 @@ public sealed class Manifest : IDisposable
 
         List<FileId> files = new(Current.Files);
 
-        if (edit.FilesUnregistered != null)
+        foreach (FileId fileId in edit.FilesUnregistered ?? Array.Empty<FileId>())
         {
-            foreach (FileId fileId in edit.FilesUnregistered)
-            {
-                files.Remove(fileId);
-            }
+            files.Remove(fileId);
         }
 
-        if (edit.FilesRegistered != null)
+        foreach (FileId fileId in edit.FilesRegistered ?? Array.Empty<FileId>())
         {
-            foreach (FileId fileId in edit.FilesRegistered)
-            {
-                files.Add(fileId);
-            }
+            files.Add(fileId);
         }
 
         // Append the new state to the front of the state list.
@@ -201,12 +195,7 @@ public sealed class Manifest : IDisposable
 
         void EncodeFileIdArray(FileId[]? value)
         {
-            if (value == null)
-            {
-                _writer.Write7BitEncodedInt(0);
-
-                return;
-            }
+            value ??= Array.Empty<FileId>();
 
             _writer.Write7BitEncodedInt(value.Length);
 
