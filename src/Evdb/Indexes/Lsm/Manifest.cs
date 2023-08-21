@@ -84,12 +84,8 @@ public sealed class Manifest : IDisposable
 
     public void Commit(ManifestEdit edit)
     {
-        // FIXME: What is up here?
-        ulong versionNo = edit.VersionNumber ?? VersionNumber;
-        ulong fileNo = edit.FileNumber ?? FileNumber;
-
-        edit.VersionNumber ??= VersionNumber;
-        edit.FileNumber ??= FileNumber;
+        edit.VersionNumber = VersionNumber;
+        edit.FileNumber = FileNumber;
 
         List<FileId> files = new(Current.Files);
 
@@ -104,7 +100,7 @@ public sealed class Manifest : IDisposable
         }
 
         // Append the new state to the front of the state list.
-        ManifestState @new = new(versionNo, fileNo, files.ToImmutableArray());
+        ManifestState @new = new(edit.VersionNumber.Value, edit.FileNumber.Value, files.ToImmutableArray());
         Current.Next = @new;
         @new.Previous = Current;
         Current = @new;
