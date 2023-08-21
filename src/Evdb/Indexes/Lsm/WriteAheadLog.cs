@@ -10,16 +10,11 @@ public sealed class WriteAheadLog : IDisposable
     private readonly Stream _file;
     private readonly BinaryWriter _writer;
 
-    public FileMetadata Metadata { get; }
-
-    public WriteAheadLog(IFileSystem fs, FileMetadata metadata)
+    public WriteAheadLog(IFileSystem fs, string path)
     {
         ArgumentNullException.ThrowIfNull(fs, nameof(fs));
-        ArgumentNullException.ThrowIfNull(metadata, nameof(metadata));
 
-        Metadata = metadata;
-
-        _file = fs.OpenFile(metadata.Path, FileMode.Create, FileAccess.Write);
+        _file = fs.OpenFile(path, FileMode.Create, FileAccess.Write);
         _writer = new BinaryWriter(_file, Encoding.UTF8, leaveOpen: true);
     }
 

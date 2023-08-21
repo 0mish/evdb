@@ -29,7 +29,7 @@ public sealed class VirtualTable : File, IDisposable
         MaxSize = maxSize;
 
         _kvs = new SortedDictionary<IndexKey, byte[]>();
-        _wal = new WriteAheadLog(fs, metadata);
+        _wal = new WriteAheadLog(fs, metadata.Path);
         _fs = fs;
     }
 
