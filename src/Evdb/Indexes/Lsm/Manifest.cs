@@ -17,10 +17,13 @@ public sealed class Manifest : IDisposable
     private readonly BinaryWriter _writer;
     private readonly IFileSystem _fs;
 
+    // TODO: This should be an LRU cache or something like that to dispose opened file handles automatically.
+    private readonly Dictionary<FileId, File> _cache;
+
     public string Path { get; }
     public ulong VersionNumber => _versionNumber;
     public ulong FileNumber => _fileNumber;
-    public ManifestState Current { get; private set; }
+    public ManifestState Current { get; private set; } = default!;
 
     public Manifest(IFileSystem fs, string path, object sync)
     {
@@ -43,28 +46,7 @@ public sealed class Manifest : IDisposable
         _file = fs.OpenFile(id.GetPath(path), FileMode.OpenOrCreate, FileAccess.Write);
         _writer = new BinaryWriter(_file, Encoding.UTF8, leaveOpen: true);
 
-        // TODO: Load the current revision from disk.
-        Current = new ManifestState(versionNo: 0, fileNo: 0, ImmutableArray<FileId>.Empty);
-    }
-
-    private void Recover()
-    {
-        FileId? latestManifest = default;
-
-        foreach (string path in _fs.ListFiles(Path))
-        {
-            if (FileId.TryParse(path, out FileId fileId) && fileId.Type == FileType.Manifest && (latestManifest == null || latestManifest.Value.Number < fileId.Number))
-            {
-                latestManifest = fileId;
-            }
-        }
-
-        if (latestManifest == null)
-        {
-            return;
-        }
-
-        // TODO: Implement recovery.
+        _cache = new Dictionary<FileId, File>();
     }
 
     public ulong NextVersionNumber()
@@ -77,9 +59,16 @@ public sealed class Manifest : IDisposable
         return _fileNumber++;
     }
 
-    public FileMetadata? Resolve(FileId fileId)
+    public File? Resolve(FileId fileId)
     {
-        return null;
+        if (!_cache.TryGetValue(fileId, out File? file) && fileId.Type == FileType.Table)
+        {
+            file = new PhysicalTable(_fs, new FileMetadata(Path, fileId.Type, fileId.Number));
+
+            _cache.Add(fileId, file);
+        }
+
+        return file;
     }
 
     public void Commit(ManifestEdit edit)
@@ -170,6 +159,27 @@ public sealed class Manifest : IDisposable
         }
     }
 
+    private void Recover()
+    {
+        FileId? latestManifest = default;
+
+        foreach (string path in _fs.ListFiles(Path))
+        {
+            if (FileId.TryParse(path, out FileId fileId) && fileId.Type == FileType.Manifest && (latestManifest == null || latestManifest.Value.Number < fileId.Number))
+            {
+                latestManifest = fileId;
+            }
+        }
+
+        if (latestManifest == null)
+        {
+            return;
+        }
+
+        // TODO: Implement recovery.
+        Current = new ManifestState(versionNo: 0, fileNo: 0, ImmutableArray<FileId>.Empty);
+    }
+
     private void LogEdit(in ManifestEdit edit)
     {
         EncodeUInt64(edit.VersionNumber);
@@ -203,6 +213,7 @@ public sealed class Manifest : IDisposable
         }
     }
 
+    // TODO: Move state to a new squashed manfiest log?
     public void Dispose()
     {
         if (_disposed)
@@ -210,7 +221,13 @@ public sealed class Manifest : IDisposable
             return;
         }
 
-        // TODO: Commit the edit to disk?
+        foreach (File file in _cache.Values)
+        {
+            if (file is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+        }
 
         // Clean up unused files.
         Clean();

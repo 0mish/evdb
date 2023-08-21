@@ -2,21 +2,12 @@
 
 public class FileMetadata
 {
-    public FileType Type { get; }
-    public ulong Number { get; }
-    public IndexKey? MinKey { get; }
-    public IndexKey? MaxKey { get; }
+    public FileId Id { get; }
     public string Path { get; }
 
-    public FileId Id => new(Type, Number);
-
-    public FileMetadata(string path, FileType type, ulong number, IndexKey? minKey = default, IndexKey? maxKey = default)
+    public FileMetadata(string path, FileType type, ulong number)
     {
-        Type = type;
-        Number = number;
-        MinKey = minKey;
-        MaxKey = maxKey;
-
+        Id = new FileId(type, number);
         Path = Id.GetPath(path);
     }
 }

@@ -21,7 +21,7 @@ public sealed class LogWriter : IDisposable
 
     public void Write(in ReadOnlySpan<byte> data)
     {
-        Crc32 checksum = Crc32.Compute(data);
+        Crc32c checksum = Crc32c.Compute(data);
 
         _writer.Write(data.Length);
         _writer.Write(checksum.Value);

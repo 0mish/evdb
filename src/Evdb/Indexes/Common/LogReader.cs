@@ -27,7 +27,7 @@ public sealed class LogReader
         data = _reader.ReadBytes((int)length);
 
         // If checksum does not match, report as chunk as corrupted.
-        if (Crc32.Compute(data).Value == checksum)
+        if (Crc32c.Compute(data).Value == checksum)
         {
             return true;
         }

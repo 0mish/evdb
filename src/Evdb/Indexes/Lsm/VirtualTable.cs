@@ -6,7 +6,7 @@ using Evdb.IO;
 namespace Evdb.Indexes.Lsm;
 
 [DebuggerDisplay("{DebuggerDisplay,nq}")]
-public sealed class VirtualTable : IDisposable
+public sealed class VirtualTable : File, IDisposable
 {
     private string DebuggerDisplay => $"VirtualTable {Metadata.Path}";
 
@@ -21,14 +21,11 @@ public sealed class VirtualTable : IDisposable
 
     public long Size { get; private set; }
     public long MaxSize { get; }
-    public FileMetadata Metadata { get; }
 
-    public VirtualTable(IFileSystem fs, FileMetadata metadata, long maxSize)
+    public VirtualTable(IFileSystem fs, FileMetadata metadata, long maxSize) : base(metadata)
     {
         ArgumentNullException.ThrowIfNull(fs, nameof(fs));
-        ArgumentNullException.ThrowIfNull(metadata, nameof(metadata));
 
-        Metadata = metadata;
         MaxSize = maxSize;
 
         _kvs = new SortedDictionary<IndexKey, byte[]>();
@@ -82,9 +79,9 @@ public sealed class VirtualTable : IDisposable
     }
 
     // TODO: Consider empty tables.
-    public PhysicalTable Flush(string path)
+    public FileMetadata Flush(string path)
     {
-        FileMetadata metadata = new(path, FileType.Table, Metadata.Number, _minKey, _maxKey);
+        FileMetadata metadata = new(path, FileType.Table, Metadata.Id.Number);
 
         using (Stream file = _fs.OpenFile(metadata.Path, FileMode.Create, FileAccess.Write))
         using (BinaryWriter writer = new(file, Encoding.UTF8, leaveOpen: true))
@@ -110,7 +107,7 @@ public sealed class VirtualTable : IDisposable
             }
         }
 
-        return new PhysicalTable(_fs, metadata);
+        return metadata;
     }
 
     public void Dispose()

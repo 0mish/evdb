@@ -59,7 +59,7 @@ public sealed class LsmIndex : IIndex
         {
             while (!_l0.TrySet(ikey, value))
             {
-                _compactionQueue.Enqueue(new CompactionJob(_l0, OnCompacted));
+                _compactionQueue.Enqueue(new CompactionJob(_l0, CompactTable));
 
                 _l0n.Add(_l0);
                 _l0 = new VirtualTable(_fs, new FileMetadata(_manifest.Path, FileType.Log, _manifest.NextFileNumber()), _l0.MaxSize);
@@ -110,17 +110,12 @@ public sealed class LsmIndex : IIndex
 
             foreach (FileId fileId in state.Files)
             {
-#if false
-                if (_manifest.Resolve(fileId, out FileMetadata? file))
-                {
+                PhysicalTable? table = _manifest.Resolve(fileId) as PhysicalTable;
 
-                }
-
-                if (file.TryGetTable(out PhysicalTable? table) && table.TryGet(ikey, out value))
+                if (table != null && table.TryGet(ikey, out value))
                 {
                     return true;
                 }
-#endif
             }
         }
         finally
@@ -134,14 +129,15 @@ public sealed class LsmIndex : IIndex
         return false;
     }
 
-    private void OnCompacted(VirtualTable vtable)
+    private void CompactTable(VirtualTable vtable)
     {
-        PhysicalTable ptable = vtable.Flush(_manifest.Path);
+        // Flush the virtual table to disk.
+        FileMetadata metadata = vtable.Flush(_manifest.Path);
 
-        // Publish the newly flushed PhysicalTable to the manifest so readers can see it.
+        // Commit the newly flushed PhysicalTable to the manifest so readers can see it.
         ManifestEdit edit = new()
         {
-            FilesRegistered = new[] { ptable.Metadata.Id }
+            FilesRegistered = new[] { metadata.Id }
         };
 
         lock (_sync)
@@ -151,9 +147,6 @@ public sealed class LsmIndex : IIndex
         }
 
         vtable.Dispose();
-
-        // FIXME: We should not be disposing the ptable here.
-        ptable.Dispose();
     }
 
     public void Dispose()

@@ -5,7 +5,7 @@ using System.Diagnostics;
 namespace Evdb.Indexes.Lsm;
 
 [DebuggerDisplay("{DebuggerDisplay,nq}")]
-public sealed class PhysicalTable : IDisposable
+public sealed class PhysicalTable : File, IDisposable
 {
     private string DebuggerDisplay => $"PhysicalTable {Metadata.Path}";
 
@@ -19,14 +19,9 @@ public sealed class PhysicalTable : IDisposable
     private readonly Stream _file;
     private readonly BinaryReader _reader;
 
-    public FileMetadata Metadata { get; }
-
-    public PhysicalTable(IFileSystem fs, FileMetadata metadata)
+    public PhysicalTable(IFileSystem fs, FileMetadata metadata) : base(metadata)
     {
         ArgumentNullException.ThrowIfNull(fs, nameof(fs));
-        ArgumentNullException.ThrowIfNull(metadata, nameof(metadata));
-
-        Metadata = metadata;
 
         _file = fs.OpenFile(metadata.Path, FileMode.Open, FileAccess.Read);
         _file.Seek(0, SeekOrigin.Begin);
