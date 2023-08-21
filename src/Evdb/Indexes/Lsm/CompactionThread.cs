@@ -24,10 +24,7 @@ public sealed class CompactionThread : IDisposable
     {
         while (!_disposed && _queue.TryDequeue(out CompactionJob job))
         {
-            VirtualTable vtable = job.Table;
-            PhysicalTable ptable = vtable.Flush();
-
-            job.Callback(vtable, ptable);
+            job.Callback(job.Table);
         }
     }
 

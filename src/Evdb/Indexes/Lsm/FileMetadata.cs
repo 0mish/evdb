@@ -1,6 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
-
-namespace Evdb.Indexes.Lsm;
+﻿namespace Evdb.Indexes.Lsm;
 
 public class FileMetadata
 {

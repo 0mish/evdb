@@ -23,16 +23,16 @@ public sealed class LogReader
     {
         long length = _reader.ReadInt64();
         int checksum = _reader.ReadInt32();
-        byte[] data0 = _reader.ReadBytes((int)length);
 
-        if (Crc32.Compute(data0).Value != checksum)
+        data = _reader.ReadBytes((int)length);
+
+        // If checksum does not match, report as chunk as corrupted.
+        if (Crc32.Compute(data).Value == checksum)
         {
-            data = default;
-
-            return false;
+            return true;
         }
 
-        data = data0;
+        data = default;
 
         return true;
     }

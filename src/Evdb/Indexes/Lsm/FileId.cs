@@ -51,4 +51,36 @@ public readonly struct FileId : IEquatable<FileId>
     {
         return HashCode.Combine(Type, Number);
     }
+
+    public static bool TryParse(string value, out FileId result)
+    {
+        string numberStr = Path.GetFileNameWithoutExtension(value);
+
+        if (!ulong.TryParse(numberStr, out ulong number))
+        {
+            result = default;
+
+            return false;
+        }
+
+        string typeStr = Path.GetExtension(value);
+        FileType type = typeStr switch
+        {
+            ".manifest" => FileType.Manifest,
+            ".ulog" => FileType.Log,
+            ".olog" => FileType.Table,
+            _ => FileType.None
+        };
+
+        if (type == FileType.None)
+        {
+            result = default;
+
+            return false;
+        }
+
+        result = new FileId(type, number);
+
+        return true;
+    }
 }

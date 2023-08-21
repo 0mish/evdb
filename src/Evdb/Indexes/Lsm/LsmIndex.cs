@@ -134,8 +134,11 @@ public sealed class LsmIndex : IIndex
         return false;
     }
 
-    private void OnCompacted(VirtualTable vtable, PhysicalTable ptable)
+    private void OnCompacted(VirtualTable vtable)
     {
+        PhysicalTable ptable = vtable.Flush(_manifest.Path);
+
+        // Publish the newly flushed PhysicalTable to the manifest so readers can see it.
         ManifestEdit edit = new()
         {
             FilesRegistered = new[] { ptable.Metadata.Id }
@@ -146,6 +149,11 @@ public sealed class LsmIndex : IIndex
             _manifest.Commit(edit);
             _l0n.Remove(vtable);
         }
+
+        vtable.Dispose();
+
+        // FIXME: We should not be disposing the ptable here.
+        ptable.Dispose();
     }
 
     public void Dispose()
@@ -158,6 +166,8 @@ public sealed class LsmIndex : IIndex
         // CompactionQueue.Dispose() returns control to the caller when the queue is empty.
         _compactionQueue.Dispose();
         _compactionThread.Dispose();
+
+        _l0.Dispose();
 
         lock (_sync)
         {

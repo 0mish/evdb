@@ -3,9 +3,9 @@
 public readonly struct CompactionJob
 {
     public VirtualTable Table { get; }
-    public Action<VirtualTable, PhysicalTable> Callback { get; }
+    public Action<VirtualTable> Callback { get; }
 
-    public CompactionJob(VirtualTable table, Action<VirtualTable, PhysicalTable> callback)
+    public CompactionJob(VirtualTable table, Action<VirtualTable> callback)
     {
         ArgumentNullException.ThrowIfNull(table, nameof(table));
         ArgumentNullException.ThrowIfNull(callback, nameof(callback));

@@ -82,10 +82,9 @@ public sealed class VirtualTable : IDisposable
     }
 
     // TODO: Consider empty tables.
-    public PhysicalTable Flush()
+    public PhysicalTable Flush(string path)
     {
-        // FIXME.
-        FileMetadata metadata = new(path: "db", FileType.Table, Metadata.Number, _minKey, _maxKey);
+        FileMetadata metadata = new(path, FileType.Table, Metadata.Number, _minKey, _maxKey);
 
         using (Stream file = _fs.OpenFile(metadata.Path, FileMode.Create, FileAccess.Write))
         using (BinaryWriter writer = new(file, Encoding.UTF8, leaveOpen: true))
@@ -122,6 +121,7 @@ public sealed class VirtualTable : IDisposable
         }
 
         _wal.Dispose();
+
         _disposed = true;
     }
 }

@@ -1,7 +1,6 @@
 ﻿using Evdb.IO;
 using Evdb.Threading;
 using System.Collections.Immutable;
-using System.Diagnostics.CodeAnalysis;
 using System.Text;
 
 namespace Evdb.Indexes.Lsm;
@@ -34,16 +33,38 @@ public sealed class Manifest : IDisposable
         _fs = fs;
         _fs.CreateDirectory(path);
 
-        // TODO: Locate latest valid manifest file.
-        FileMetadata metadata = new(path, FileType.Manifest, number: 0);
-
-        _file = fs.OpenFile(metadata.Path, FileMode.OpenOrCreate, FileAccess.Write);
-        _writer = new BinaryWriter(_file, Encoding.UTF8, leaveOpen: true);
-
         Path = path;
+
+        // TODO: Locate latest valid manifest file.
+        FileId id = new(FileType.Manifest, number: 0);
+
+        Recover();
+
+        _file = fs.OpenFile(id.GetPath(path), FileMode.OpenOrCreate, FileAccess.Write);
+        _writer = new BinaryWriter(_file, Encoding.UTF8, leaveOpen: true);
 
         // TODO: Load the current revision from disk.
         Current = new ManifestState(versionNo: 0, fileNo: 0, ImmutableArray<FileId>.Empty);
+    }
+
+    private void Recover()
+    {
+        FileId? latestManifest = default;
+
+        foreach (string path in _fs.ListFiles(Path))
+        {
+            if (FileId.TryParse(path, out FileId fileId) && fileId.Type == FileType.Manifest && (latestManifest == null || latestManifest.Value.Number < fileId.Number))
+            {
+                latestManifest = fileId;
+            }
+        }
+
+        if (latestManifest == null)
+        {
+            return;
+        }
+
+        // TODO: Implement recovery.
     }
 
     public ulong NextVersionNumber()
@@ -56,11 +77,61 @@ public sealed class Manifest : IDisposable
         return _fileNumber++;
     }
 
-    public bool Resolve(FileId fileId, [MaybeNullWhen(false)] out FileMetadata metadata)
+    public FileMetadata? Resolve(FileId fileId)
     {
-        metadata = default;
+        return null;
+    }
 
-        return false;
+    public void Commit(ManifestEdit edit)
+    {
+        // FIXME: What is up here?
+        ulong versionNo = edit.VersionNumber ?? VersionNumber;
+        ulong fileNo = edit.FileNumber ?? FileNumber;
+
+        edit.VersionNumber ??= VersionNumber;
+        edit.FileNumber ??= FileNumber;
+
+        List<FileId> files = new(Current.Files);
+
+        if (edit.FilesUnregistered != null)
+        {
+            foreach (FileId fileId in edit.FilesUnregistered)
+            {
+                files.Remove(fileId);
+            }
+        }
+
+        if (edit.FilesRegistered != null)
+        {
+            foreach (FileId fileId in edit.FilesRegistered)
+            {
+                files.Add(fileId);
+            }
+        }
+
+        // Append the new state to the front of the state list.
+        ManifestState @new = new(versionNo, fileNo, files.ToImmutableArray());
+        Current.Next = @new;
+        @new.Previous = Current;
+        Current = @new;
+
+        bool lockReleased = false;
+
+        try
+        {
+            MonitorHelper.Exit(_sync, out lockReleased);
+
+            // TODO:
+            // Review if this is safe from corruption when mulitple threads are here. Do we even multiple theads to be here?
+            LogEdit(edit);
+        }
+        finally
+        {
+            if (lockReleased)
+            {
+                Monitor.Enter(_sync);
+            }
+        }
     }
 
     public void Clean()
@@ -109,57 +180,6 @@ public sealed class Manifest : IDisposable
         }
     }
 
-    public void Commit(ManifestEdit edit)
-    {
-        // FIXME: What is up here?
-        ulong versionNo = edit.VersionNumber ?? VersionNumber;
-        ulong fileNo = edit.FileNumber ?? FileNumber;
-
-        edit.VersionNumber ??= VersionNumber;
-        edit.FileNumber ??= FileNumber;
-
-        // TODO: Consider using a sorted set instead.
-        List<FileId> files = new(Current.Files);
-
-        if (edit.FilesUnregistered != null)
-        {
-            foreach (FileId fileId in edit.FilesUnregistered)
-            {
-                files.Remove(fileId);
-            }
-        }
-
-        if (edit.FilesRegistered != null)
-        {
-            foreach (FileId fileId in edit.FilesRegistered)
-            {
-                files.Add(fileId);
-            }
-        }
-
-        // Append the new state to the front of the state list.
-        ManifestState @new = new(versionNo, fileNo, files.ToImmutableArray());
-        Current.Next = @new;
-        @new.Previous = Current;
-        Current = @new;
-
-        bool lockReleased = false;
-
-        try
-        {
-            MonitorHelper.Exit(_sync, out lockReleased);
-
-            LogEdit(edit);
-        }
-        finally
-        {
-            if (lockReleased)
-            {
-                Monitor.Enter(_sync);
-            }
-        }
-    }
-
     private void LogEdit(in ManifestEdit edit)
     {
         EncodeUInt64(edit.VersionNumber);
@@ -204,6 +224,8 @@ public sealed class Manifest : IDisposable
         {
             return;
         }
+
+        // TODO: Commit the edit to disk?
 
         // Clean up unused files.
         Clean();
