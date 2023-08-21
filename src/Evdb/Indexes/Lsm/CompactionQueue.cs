@@ -1,11 +1,16 @@
-﻿namespace Evdb.Indexes.Lsm;
+﻿using System.Diagnostics;
 
+namespace Evdb.Indexes.Lsm;
+
+[DebuggerDisplay("Count = {Count}")]
 public sealed class CompactionQueue : IDisposable
 {
     private long _disposed;
     private readonly object _sync;
     private readonly Queue<CompactionJob> _queue;
     private readonly ManualResetEventSlim _notEmpty;
+
+    public int Count => _queue.Count;
 
     public CompactionQueue()
     {
