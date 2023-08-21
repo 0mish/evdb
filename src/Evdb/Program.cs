@@ -10,6 +10,7 @@ static void MultipleWritersSingleReader(int iter, int entries)
 {
     Console.WriteLine($"{nameof(MultipleWritersSingleReader)}:");
 
+    ulong tmiss = 0;
     TimeSpan awts = default;
     TimeSpan arts = default;
 
@@ -32,13 +33,14 @@ static void MultipleWritersSingleReader(int iter, int entries)
             db.TrySet(kv.Key, kv.Value);
         });
 
+        ulong miss = 0;
         TimeSpan wts = sw.Elapsed;
 
         foreach (var kv in kvs)
         {
             if (!db.TryGet(kv.Key, out ReadOnlySpan<byte> val) || !val.SequenceEqual(kv.Value))
             {
-                Console.WriteLine($"Key did not match");
+                miss++;
             }
         }
 
@@ -46,16 +48,17 @@ static void MultipleWritersSingleReader(int iter, int entries)
 
         Console.WriteLine($"Done in {(rts + wts).TotalMilliseconds}ms #{j}");
         Console.WriteLine($" w {wts.TotalMilliseconds} ms {entries / wts.TotalMilliseconds:f2} p/s");
-        Console.WriteLine($" r {rts.TotalMilliseconds} ms {entries / rts.TotalMilliseconds:f2} g/s");
+        Console.WriteLine($" r {rts.TotalMilliseconds} ms {entries / rts.TotalMilliseconds:f2} g/s {miss} misses");
 
         awts += wts;
         arts += rts;
+        tmiss += miss;
     }
 
     Console.WriteLine();
     Console.WriteLine($"Done in {(arts + awts).TotalMilliseconds}ms <>");
     Console.WriteLine($" w {awts.TotalMilliseconds} ms {iter * entries / awts.TotalMilliseconds:f2} p/s");
-    Console.WriteLine($" r {arts.TotalMilliseconds} ms {iter * entries / arts.TotalMilliseconds:f2} g/s");
+    Console.WriteLine($" r {arts.TotalMilliseconds} ms {iter * entries / arts.TotalMilliseconds:f2} g/s {tmiss} misses");
     Console.WriteLine();
     Console.WriteLine();
 }
@@ -64,6 +67,7 @@ static void SingleWriterSingleReader(int iter, int entries)
 {
     Console.WriteLine($"{nameof(SingleWriterSingleReader)}:");
 
+    ulong tmiss = 0;
     TimeSpan awts = default;
     TimeSpan arts = default;
 
@@ -86,13 +90,14 @@ static void SingleWriterSingleReader(int iter, int entries)
             db.TrySet(kv.Key, kv.Value);
         }
 
+        ulong miss = 0;
         TimeSpan wts = sw.Elapsed;
 
         foreach (var kv in kvs)
         {
             if (!db.TryGet(kv.Key, out ReadOnlySpan<byte> val) || !val.SequenceEqual(kv.Value))
             {
-                Console.WriteLine($"Key did not match");
+                miss++;
             }
         }
 
@@ -100,16 +105,17 @@ static void SingleWriterSingleReader(int iter, int entries)
 
         Console.WriteLine($"Done in {(rts + wts).TotalMilliseconds}ms #{j}");
         Console.WriteLine($" w {wts.TotalMilliseconds} ms {entries / wts.TotalMilliseconds:f2} p/s");
-        Console.WriteLine($" r {rts.TotalMilliseconds} ms {entries / rts.TotalMilliseconds:f2} g/s");
+        Console.WriteLine($" r {rts.TotalMilliseconds} ms {entries / rts.TotalMilliseconds:f2} g/s {miss} misses");
 
         awts += wts;
         arts += rts;
+        tmiss += miss;
     }
 
     Console.WriteLine();
     Console.WriteLine($"Done in {(arts + awts).TotalMilliseconds}ms <>");
     Console.WriteLine($" w {awts.TotalMilliseconds} ms {iter * entries / awts.TotalMilliseconds:f2} p/s");
-    Console.WriteLine($" r {arts.TotalMilliseconds} ms {iter * entries / arts.TotalMilliseconds:f2} g/s");
+    Console.WriteLine($" r {arts.TotalMilliseconds} ms {iter * entries / arts.TotalMilliseconds:f2} g/s {tmiss} misses");
     Console.WriteLine();
     Console.WriteLine();
 }
