@@ -63,7 +63,12 @@ public sealed class Manifest : IDisposable
 
     public File? Resolve(FileId fileId)
     {
-        if (!_cache.TryGetValue(fileId, out File? file) && fileId.Type == FileType.Table)
+        if (fileId.Type != FileType.Table)
+        {
+            return null;
+        }
+
+        if (!_cache.TryGetValue(fileId, out File? file))
         {
             file = new PhysicalTable(_fs, new FileMetadata(Path, fileId.Type, fileId.Number));
 
