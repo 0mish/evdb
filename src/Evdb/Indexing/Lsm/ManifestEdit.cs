@@ -1,6 +1,6 @@
-﻿namespace Evdb.Indexes.Lsm;
+﻿namespace Evdb.Indexing.Lsm;
 
-public struct ManifestEdit
+internal struct ManifestEdit
 {
     public ulong? VersionNumber { get; set; }
     public ulong? FileNumber { get; set; }

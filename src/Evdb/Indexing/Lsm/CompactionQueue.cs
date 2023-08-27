@@ -1,9 +1,9 @@
 ﻿using System.Diagnostics;
 
-namespace Evdb.Indexes.Lsm;
+namespace Evdb.Indexing.Lsm;
 
 [DebuggerDisplay("Count = {Count}")]
-public sealed class CompactionQueue : IDisposable
+internal sealed class CompactionQueue : IDisposable
 {
     private long _disposed;
     private readonly object _sync;

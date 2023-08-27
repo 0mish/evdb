@@ -1,12 +1,11 @@
 ﻿using System.Diagnostics;
 using System.Text;
-using Evdb.Indexes.Common;
 using Evdb.IO;
 
-namespace Evdb.Indexes.Lsm;
+namespace Evdb.Indexing.Lsm;
 
 [DebuggerDisplay("{DebuggerDisplay,nq}")]
-public sealed class VirtualTable : File, IDisposable
+internal sealed class VirtualTable : File, IDisposable
 {
     private string DebuggerDisplay => $"VirtualTable {Metadata.Path}";
 

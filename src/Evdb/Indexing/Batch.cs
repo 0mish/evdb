@@ -1,6 +1,6 @@
-﻿namespace Evdb.Indexes;
+﻿namespace Evdb.Indexing;
 
-public class Batch
+internal sealed class Batch
 {
     public bool Applied { get; private set; }
 

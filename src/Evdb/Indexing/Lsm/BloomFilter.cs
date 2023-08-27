@@ -1,6 +1,6 @@
-﻿namespace Evdb.Indexes.Common;
+﻿namespace Evdb.Indexing.Lsm;
 
-public class BloomFilter
+internal sealed class BloomFilter
 {
     private readonly byte[] _filter;
 

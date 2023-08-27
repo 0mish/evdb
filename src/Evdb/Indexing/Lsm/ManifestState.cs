@@ -1,8 +1,8 @@
 ﻿using System.Collections.Immutable;
 
-namespace Evdb.Indexes.Lsm;
+namespace Evdb.Indexing.Lsm;
 
-public sealed class ManifestState
+internal sealed class ManifestState
 {
     public int ReferenceCount { get; private set; }
 

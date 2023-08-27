@@ -1,8 +1,8 @@
 ﻿using Evdb.IO;
 
-namespace Evdb.Indexes.Lsm;
+namespace Evdb.Indexing.Lsm;
 
-public sealed class LsmIndex : IIndex
+internal sealed class LsmIndex : IIndex
 {
     private int _disposed;
 
@@ -110,9 +110,7 @@ public sealed class LsmIndex : IIndex
 
             foreach (FileId fileId in state.Files)
             {
-                PhysicalTable? table = _manifest.Resolve(fileId) as PhysicalTable;
-
-                if (table != null && table.TryGet(ikey, out value))
+                if (_manifest.Resolve(fileId) is PhysicalTable table && table.TryGet(ikey, out value))
                 {
                     return true;
                 }

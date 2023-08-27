@@ -1,9 +1,9 @@
 ﻿using Evdb.IO;
 using System.Text;
 
-namespace Evdb.Indexes.Lsm;
+namespace Evdb.Indexing.Lsm;
 
-public sealed class WriteAheadLog : IDisposable
+internal sealed class WriteAheadLog : IDisposable
 {
     private bool _disposed;
 

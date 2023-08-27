@@ -1,10 +1,11 @@
-﻿using Evdb.IO;
+﻿using Evdb.Hashing;
+using Evdb.IO;
 using System.Text;
 
-namespace Evdb.Indexes.Common;
+namespace Evdb.Indexing;
 
 // TODO: Implement scrolling memory mapped buffer.
-public sealed class LogWriter : IDisposable
+internal sealed class LogWriter : IDisposable
 {
     private bool _disposed;
     private readonly Stream _file;

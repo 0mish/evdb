@@ -1,11 +1,10 @@
-﻿using Evdb.Indexes.Common;
-using Evdb.IO;
+﻿using Evdb.IO;
 using System.Diagnostics;
 
-namespace Evdb.Indexes.Lsm;
+namespace Evdb.Indexing.Lsm;
 
 [DebuggerDisplay("{DebuggerDisplay,nq}")]
-public sealed class PhysicalTable : File, IDisposable
+internal sealed class PhysicalTable : File, IDisposable
 {
     private string DebuggerDisplay => $"PhysicalTable {Metadata.Path}";
 

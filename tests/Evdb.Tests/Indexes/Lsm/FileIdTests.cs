@@ -1,4 +1,4 @@
-﻿using Evdb.Indexes.Lsm;
+﻿using Evdb.Indexing.Lsm;
 
 namespace Evdb.Tests.Indexes.Lsm;
 

@@ -1,6 +1,6 @@
-﻿namespace Evdb.Indexes.Lsm;
+﻿namespace Evdb.Indexing.Lsm;
 
-public readonly struct CompactionJob
+internal readonly struct CompactionJob
 {
     public VirtualTable Table { get; }
     public Action<VirtualTable> Callback { get; }

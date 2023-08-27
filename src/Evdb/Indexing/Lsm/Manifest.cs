@@ -3,9 +3,9 @@ using Evdb.Threading;
 using System.Collections.Immutable;
 using System.Text;
 
-namespace Evdb.Indexes.Lsm;
+namespace Evdb.Indexing.Lsm;
 
-public sealed class Manifest : IDisposable
+internal sealed class Manifest : IDisposable
 {
     private bool _disposed;
 

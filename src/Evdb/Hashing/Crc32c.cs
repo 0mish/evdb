@@ -1,6 +1,6 @@
-﻿namespace Evdb.Indexes.Common;
+﻿namespace Evdb.Hashing;
 
-public struct Crc32c
+internal struct Crc32c
 {
     public int Value { get; }
 

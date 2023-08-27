@@ -1,6 +1,6 @@
 ﻿namespace Evdb.Collections;
 
-public class SkipList<TKey, TValue>
+internal sealed class SkipList<TKey, TValue>
 {
     private int _level;
     private Node _head;

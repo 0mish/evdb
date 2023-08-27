@@ -1,9 +1,9 @@
 ﻿using System.Diagnostics;
 
-namespace Evdb.Indexes.Lsm;
+namespace Evdb.Indexing.Lsm;
 
 [DebuggerDisplay("FileId {DebuggerDisplay,nq}")]
-public readonly struct FileId : IEquatable<FileId>
+internal readonly struct FileId : IEquatable<FileId>
 {
     private string DebuggerDisplay => $"{GetPath(string.Empty)}";
 

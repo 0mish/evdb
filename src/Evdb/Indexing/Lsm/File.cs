@@ -1,6 +1,6 @@
-﻿namespace Evdb.Indexes.Lsm;
+﻿namespace Evdb.Indexing.Lsm;
 
-public abstract class File
+internal abstract class File
 {
     public FileMetadata Metadata { get; }
 

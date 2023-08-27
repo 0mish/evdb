@@ -1,6 +1,6 @@
-﻿namespace Evdb.Indexes;
+﻿namespace Evdb.Indexing;
 
-public readonly struct IndexKey : IComparable<IndexKey>
+internal readonly struct IndexKey : IComparable<IndexKey>
 {
     public string Value { get; }
     public ulong Version { get; }

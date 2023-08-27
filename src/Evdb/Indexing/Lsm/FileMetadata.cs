@@ -1,6 +1,6 @@
-﻿namespace Evdb.Indexes.Lsm;
+﻿namespace Evdb.Indexing.Lsm;
 
-public class FileMetadata
+internal sealed class FileMetadata
 {
     public FileId Id { get; }
     public string Path { get; }

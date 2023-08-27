@@ -1,6 +1,6 @@
-﻿namespace Evdb.Indexes.Lsm;
+﻿namespace Evdb.Indexing.Lsm;
 
-public sealed class CompactionThread : IDisposable
+internal sealed class CompactionThread : IDisposable
 {
     private static int s_nextId = 0;
 
