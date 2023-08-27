@@ -13,6 +13,7 @@ public sealed class Manifest : IDisposable
     private ulong _fileNumber;
 
     private readonly object _sync;
+    private readonly object _writerSync;
     private readonly Stream _file;
     private readonly BinaryWriter _writer;
     private readonly IFileSystem _fs;
@@ -32,6 +33,7 @@ public sealed class Manifest : IDisposable
         ArgumentNullException.ThrowIfNull(sync, nameof(sync));
 
         _sync = sync;
+        _writerSync = new object();
 
         _fs = fs;
         _fs.CreateDirectory(path);
@@ -100,9 +102,12 @@ public sealed class Manifest : IDisposable
         {
             MonitorHelper.Exit(_sync, out lockReleased);
 
-            // TODO:
-            // Review if this is safe from corruption when mulitple threads are here. Do we even multiple theads to be here?
-            LogEdit(edit);
+            // Use a different lock to serialize writes to the manifest log so the main lock is freed and other
+            // operations are allowed meanwhile.
+            lock (_writerSync)
+            {
+                LogEdit(edit);
+            }
         }
         finally
         {
