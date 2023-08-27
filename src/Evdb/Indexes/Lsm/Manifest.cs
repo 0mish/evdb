@@ -181,8 +181,11 @@ public sealed class Manifest : IDisposable
             }
         }
 
+        // If manifest does not exist, create an empty initial manifest state.
         if (latestManifest == null)
         {
+            Current = new ManifestState(versionNo: 0, fileNo: 0, ImmutableArray<FileId>.Empty);
+
             return;
         }
 
