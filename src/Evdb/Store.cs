@@ -1,29 +1,38 @@
 ﻿using Evdb.Indexing.Lsm;
+using System.Collections.Concurrent;
 
 namespace Evdb;
 
-public struct RecordIterator
+public struct RecordStreamIterator
 {
-
+    public bool TryGetNext(out ReadOnlySpan<byte> value)
+    {
+        throw new NotImplementedException();
+    }
 }
 
 public sealed class RecordStream
 {
+    private readonly object _sync;
     private readonly LsmIndex _index;
     private readonly string _name;
 
     internal RecordStream(LsmIndex index, string name)
     {
+        _sync = new object();
         _index = index;
         _name = name;
     }
 
     public void Append(in ReadOnlySpan<byte> value)
     {
-        _index.TrySet(_name, value);
+        lock (_sync)
+        {
+            _index.TrySet(_name, value);
+        }
     }
 
-    public RecordIterator Read()
+    public RecordStreamIterator Iterator()
     {
         throw new NotImplementedException();
     }
@@ -32,14 +41,18 @@ public sealed class RecordStream
 public sealed class Store : IDisposable
 {
     private bool _disposed;
-    private LsmIndex _index;
+    private readonly LsmIndex _index;
+    private readonly ConcurrentDictionary<string, RecordStream> _streams;
 
     public Store(string path)
     {
-        _index = new LsmIndex(new LsmIndexOptions
+        LsmIndexOptions options = new()
         {
             Path = path
-        });
+        };
+
+        _index = new LsmIndex(options);
+        _streams = new ConcurrentDictionary<string, RecordStream>();
     }
 
     public RecordStream All()
@@ -51,7 +64,7 @@ public sealed class Store : IDisposable
     {
         ArgumentNullException.ThrowIfNull(name, nameof(name));
 
-        return new RecordStream(_index, name);
+        return _streams.GetOrAdd(name, key => new RecordStream(_index, name));
     }
 
     public bool Exists(string name)
