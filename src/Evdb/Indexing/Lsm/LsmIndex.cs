@@ -2,7 +2,7 @@
 
 namespace Evdb.Indexing.Lsm;
 
-internal sealed class LsmIndex : IIndex
+internal sealed class LsmIndex : IDisposable
 {
     private int _disposed;
 
