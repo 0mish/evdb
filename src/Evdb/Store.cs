@@ -1,5 +1,6 @@
 ﻿using Evdb.Indexing.Lsm;
 using System.Collections.Concurrent;
+using System.Text.Json;
 
 namespace Evdb;
 
@@ -30,6 +31,18 @@ public sealed class RecordStream
         {
             _index.TrySet(_name, value);
         }
+    }
+
+    public void AppendJson<T>(T value)
+    {
+        using MemoryStream stream = new();
+
+        JsonSerializer.Serialize(stream, value);
+
+        ReadOnlySpan<byte> buffer = stream.GetBuffer();
+        ReadOnlySpan<byte> json = buffer[..(int)stream.Length];
+
+        Append(json);
     }
 
     public RecordStreamIterator Iterator()
