@@ -1,5 +1,23 @@
 ﻿namespace Evdb;
 
+public struct RecordIterator
+{
+
+}
+
+public class RecordStream
+{
+    public void Append(in ReadOnlySpan<byte> value)
+    {
+        throw new NotImplementedException();
+    }
+
+    public RecordIterator Read()
+    {
+        throw new NotImplementedException();
+    }
+}
+
 public class Store
 {
     public Store(string path)
@@ -7,13 +25,18 @@ public class Store
 
     }
 
-    public void Write(string name, in ReadOnlySpan<byte> value)
+    public RecordStream All()
     {
-
+        throw new NotImplementedException();
     }
 
-    public void Read(string name, out ReadOnlySpan<byte> value)
+    public RecordStream Get(string name)
     {
-        value = default;
+        throw new NotImplementedException();
+    }
+
+    public bool Exists(string name)
+    {
+        throw new NotImplementedException();
     }
 }
