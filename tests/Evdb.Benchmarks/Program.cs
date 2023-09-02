@@ -1,7 +1,6 @@
 ﻿using Evdb.Indexing.Lsm;
 using Evdb.IO;
 using System.Diagnostics;
-using System.Text;
 
 Func<BenchmarkResult>[] benchmarks = new Func<BenchmarkResult>[]
 {
@@ -19,15 +18,17 @@ foreach (Func<BenchmarkResult> benchmark in benchmarks)
 {
     BenchmarkResult result = benchmark();
 
-    double bytesWrittenPerSecond = result.BytesWritten / result.Duration.TotalSeconds;
-    double bytesReadPerSecond = result.BytesRead / result.Duration.TotalSeconds;
+    const double Scale = 1024 * 1024;
 
-    Console.WriteLine($"{result.Name,50} | {bytesWrittenPerSecond,10:f2} bytes/s | {bytesReadPerSecond,10:f2} bytes/s");
+    double bytesWrittenPerSecond = result.BytesWritten / Scale / result.Duration.TotalSeconds;
+    double bytesReadPerSecond = result.BytesRead / Scale / result.Duration.TotalSeconds;
+
+    Console.WriteLine($"{result.Name,50} | {bytesWrittenPerSecond,13:f2} mb/s | {bytesReadPerSecond,13:f2} mb/s");
 }
 
 static BenchmarkResult MultipleWritersSingleReader(int entries)
 {
-    Dictionary<string, byte[]> kvs = GenerateKeyValues(entries, keySize: 12, valueSize: 64);
+    Dictionary<byte[], byte[]> kvs = GenerateKeyValues(entries, keySize: 12, valueSize: 64);
     LsmIndexOptions options = new()
     {
         Path = "db"
@@ -63,7 +64,7 @@ static BenchmarkResult MultipleWritersSingleReader(int entries)
 
 static BenchmarkResult SingleWriterSingleReader(int entries)
 {
-    Dictionary<string, byte[]> kvs = GenerateKeyValues(entries, keySize: 12, valueSize: 64);
+    Dictionary<byte[], byte[]> kvs = GenerateKeyValues(entries, keySize: 12, valueSize: 64);
     LsmIndexOptions options = new()
     {
         Path = "db",
@@ -97,10 +98,10 @@ static BenchmarkResult SingleWriterSingleReader(int entries)
     return new BenchmarkResult("Single Writer then Single Reader", readWrite, readWrite, wts + rts);
 }
 
-static Dictionary<string, byte[]> GenerateKeyValues(int count, int keySize, int valueSize)
+static Dictionary<byte[], byte[]> GenerateKeyValues(int count, int keySize, int valueSize)
 {
     Random random = new(Seed: 0);
-    Dictionary<string, byte[]> kvs = new();
+    Dictionary<byte[], byte[]> kvs = new();
 
     byte[] key = new byte[keySize];
     byte[] value = new byte[valueSize];
@@ -110,7 +111,7 @@ static Dictionary<string, byte[]> GenerateKeyValues(int count, int keySize, int 
         random.NextBytes(key);
         random.NextBytes(value);
 
-        kvs[Encoding.Unicode.GetString(key)] = value.ToArray();
+        kvs[key] = value.ToArray();
     }
 
     return kvs;

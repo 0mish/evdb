@@ -1,4 +1,5 @@
 ﻿using Evdb.Indexing.Lsm;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 
 namespace Evdb;
@@ -20,7 +21,7 @@ public sealed class RecordStream
     {
         lock (_sync)
         {
-            _index.TrySet(_name, value);
+            _index.TrySet(MemoryMarshal.Cast<char, byte>(_name.AsSpan()), value);
         }
     }
 

@@ -11,8 +11,8 @@ internal sealed class PhysicalTable : File, IDisposable
     private bool _disposed;
 
     private readonly BloomFilter _filter;
-    private readonly string _maxKey;
-    private readonly string _minKey;
+    private readonly byte[] _maxKey;
+    private readonly byte[] _minKey;
     private readonly long _dataPosition;
 
     private readonly Stream _file;
@@ -31,18 +31,16 @@ internal sealed class PhysicalTable : File, IDisposable
         byte[] filterBuffer = _reader.ReadBytes(filterSize);
 
         _filter = new BloomFilter(filterBuffer);
-        _minKey = _reader.ReadString();
-        _maxKey = _reader.ReadString();
+        _minKey = _reader.ReadByteArray();
+        _maxKey = _reader.ReadByteArray();
 
         _dataPosition = _file.Position;
     }
 
-    public bool TryGet(IndexKey ikey, out ReadOnlySpan<byte> value)
+    public bool TryGet(ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value, ulong version)
     {
-        string key = ikey.Value;
-
         // If not in range of keys in the table, we exit early.
-        if (Comparer<string>.Default.Compare(key, _minKey) < 0 || Comparer<string>.Default.Compare(key, _maxKey) > 0)
+        if (key.SequenceCompareTo(_minKey) < 0 || key.SequenceCompareTo(_maxKey) > 0)
         {
             value = default;
 
@@ -62,7 +60,7 @@ internal sealed class PhysicalTable : File, IDisposable
         // Otherwise we perform the look up in the file.
         while (_file.Position < _file.Length)
         {
-            string fileKey = _reader.ReadString();
+            Span<byte> fileKey = _reader.ReadByteArray();
             int fileValueLength = _reader.Read7BitEncodedInt();
 
             if (fileKey == key)

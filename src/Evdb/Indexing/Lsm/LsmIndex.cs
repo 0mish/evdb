@@ -46,18 +46,18 @@ internal sealed class LsmIndex : IDisposable
         _l0n = new List<VirtualTable>();
     }
 
-    public bool TrySet(string key, in ReadOnlySpan<byte> value)
+    public bool TrySet(in ReadOnlySpan<byte> key, in ReadOnlySpan<byte> value)
     {
         if (Volatile.Read(ref _disposed) == 1)
         {
             return false;
         }
 
-        IndexKey ikey = new(key, _manifest.VersionNumber);
+        ulong version = _manifest.VersionNumber;
 
         lock (_sync)
         {
-            while (!_l0.TrySet(ikey, value))
+            while (!_l0.TrySet(key, value, version))
             {
                 _compactionQueue.Enqueue(new CompactionJob(_l0, CompactTable));
 
@@ -69,7 +69,7 @@ internal sealed class LsmIndex : IDisposable
         return true;
     }
 
-    public bool TryGet(string key, out ReadOnlySpan<byte> value)
+    public bool TryGet(in ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
     {
         if (Volatile.Read(ref _disposed) == 1)
         {
@@ -78,10 +78,10 @@ internal sealed class LsmIndex : IDisposable
             return false;
         }
 
-        IndexKey ikey = new(key, _manifest.VersionNumber);
+        ulong version = _manifest.VersionNumber;
         VirtualTable l0 = Volatile.Read(ref _l0);
 
-        if (l0.TryGet(ikey, out value))
+        if (l0.TryGet(key, out value, version))
         {
             return true;
         }
@@ -102,7 +102,7 @@ internal sealed class LsmIndex : IDisposable
             // FIXME: l0n is not sorted by newest to oldest.
             foreach (VirtualTable table in l0n)
             {
-                if (table.TryGet(ikey, out value))
+                if (table.TryGet(key, out value, version))
                 {
                     return true;
                 }
@@ -110,7 +110,7 @@ internal sealed class LsmIndex : IDisposable
 
             foreach (FileId fileId in state.Files)
             {
-                if (_manifest.Resolve(fileId) is PhysicalTable table && table.TryGet(ikey, out value))
+                if (_manifest.Resolve(fileId) is PhysicalTable table && table.TryGet(key, out value, version))
                 {
                     return true;
                 }

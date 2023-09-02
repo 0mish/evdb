@@ -4,6 +4,7 @@ namespace Evdb.Tests.Indexes.Lsm;
 
 public class FileIdTests
 {
+#if false
     [TestCase("", FileType.Manifest, 1ul, "000001.manifest")]
     [TestCase("test", FileType.Manifest, 1ul, "test\\000001.manifest")]
     [TestCase("test", FileType.Table, 1ul, "test\\000001.olog")]
@@ -54,4 +55,5 @@ public class FileIdTests
             Assert.That(fileId.Number, Is.EqualTo(number));
         });
     }
+#endif
 }

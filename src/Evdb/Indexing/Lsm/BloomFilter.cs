@@ -19,7 +19,7 @@ internal sealed class BloomFilter
         _filter = filter;
     }
 
-    public void Set(string key)
+    public void Set(ReadOnlySpan<byte> key)
     {
         ulong[] hashes = Hash(key);
 
@@ -32,7 +32,7 @@ internal sealed class BloomFilter
         }
     }
 
-    public bool Test(string key)
+    public bool Test(ReadOnlySpan<byte> key)
     {
         ulong[] hashes = Hash(key);
 
@@ -50,7 +50,7 @@ internal sealed class BloomFilter
         return true;
     }
 
-    private static ulong[] Hash(string key)
+    private static ulong[] Hash(ReadOnlySpan<byte> key)
     {
         ulong[] hashes = new ulong[4];
 
@@ -63,7 +63,7 @@ internal sealed class BloomFilter
     }
 
     // TODO: Consider moving this out to a Evdb.Hashing namespace.
-    private static ulong Fnv1(string key, int seed)
+    private static ulong Fnv1(ReadOnlySpan<byte> key, int seed)
     {
         const ulong FnvPrime = 0x00000100000001B3;
         const ulong FnvOffsetBasis = 0xCBF29CE484222325;

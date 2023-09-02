@@ -11,8 +11,8 @@ internal sealed class VirtualTable : File, IDisposable
 
     private bool _disposed;
 
-    private IndexKey? _minKey;
-    private IndexKey? _maxKey;
+    private IndexKey _minKey;
+    private IndexKey _maxKey;
 
     private readonly SortedDictionary<IndexKey, byte[]> _kvs;
     private readonly WriteAheadLog _wal;
@@ -33,37 +33,30 @@ internal sealed class VirtualTable : File, IDisposable
     }
 
     // TODO: Handle case where the record itself is larger than the table size.
-    public bool TrySet(IndexKey ikey, in ReadOnlySpan<byte> value)
+    public bool TrySet(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value, ulong version)
     {
-        long newSize = Size + ikey.Value.Length + value.Length;
+        long newSize = Size + key.Length + value.Length;
 
         if (newSize > MaxSize)
         {
             return false;
         }
 
-        _wal.LogSet(ikey, value);
+        IndexKey ikey = new(key.ToArray(), version);
 
-        if (Nullable.Compare(ikey, _minKey) < 0)
-        {
-            _minKey = ikey;
-        }
-
-        if (Nullable.Compare(ikey, _maxKey) > 0)
-        {
-            _maxKey = ikey;
-        }
-
-        _kvs[ikey] = value.ToArray();
+        _wal.LogSet(key, value, version);
+        _kvs.Add(ikey, value.ToArray());
 
         Size = newSize;
 
         return true;
     }
 
-    public bool TryGet(IndexKey ikey, out ReadOnlySpan<byte> value)
+    public bool TryGet(ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value, ulong version)
     {
-        if (Nullable.Compare(ikey, _minKey) < 0 || Nullable.Compare(ikey, _maxKey) > 0)
+        IndexKey ikey = new(key.ToArray(), version);
+
+        if (_kvs.Count == 0 || key.SequenceCompareTo(_minKey.Value) < 0 || key.SequenceCompareTo(_maxKey.Value) > 0)
         {
             value = default;
 
@@ -92,17 +85,14 @@ internal sealed class VirtualTable : File, IDisposable
                 filter.Set(kv.Key.Value);
             }
 
-            writer.Write7BitEncodedInt(filter.Buffer.Length);
-            writer.Write(filter.Buffer);
-
-            writer.Write(_minKey?.Value ?? "");
-            writer.Write(_maxKey?.Value ?? "");
+            writer.WriteByteArray(filter.Buffer);
+            writer.WriteByteArray(_minKey.Value);
+            writer.WriteByteArray(_maxKey.Value);
 
             foreach (KeyValuePair<IndexKey, byte[]> kv in _kvs)
             {
-                writer.Write(kv.Key.Value);
-                writer.Write7BitEncodedInt(kv.Value.Length);
-                writer.Write(kv.Value);
+                writer.WriteByteArray(kv.Key.Value);
+                writer.WriteByteArray(kv.Value);
             }
         }
 
@@ -117,7 +107,6 @@ internal sealed class VirtualTable : File, IDisposable
         }
 
         _wal.Dispose();
-
         _disposed = true;
     }
 }

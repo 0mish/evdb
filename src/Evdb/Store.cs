@@ -1,5 +1,6 @@
 ﻿using Evdb.Indexing.Lsm;
 using System.Collections.Concurrent;
+using System.Runtime.InteropServices;
 
 namespace Evdb;
 
@@ -36,7 +37,7 @@ public sealed class Store : IDisposable
     {
         ArgumentNullException.ThrowIfNull(name, nameof(name));
 
-        return _index.TryGet(name, out _);
+        return _index.TryGet(MemoryMarshal.Cast<char, byte>(name.AsSpan()), out _);
     }
 
     public void Dispose()

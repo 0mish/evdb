@@ -1,11 +1,13 @@
-﻿namespace Evdb.Indexing;
+﻿using System.Text;
+
+namespace Evdb.Indexing;
 
 internal readonly struct IndexKey : IComparable<IndexKey>
 {
-    public string Value { get; }
+    public byte[] Value { get; }
     public ulong Version { get; }
 
-    public IndexKey(string value, ulong version)
+    public IndexKey(byte[] value, ulong version)
     {
         Value = value;
         Version = version;
@@ -13,14 +15,14 @@ internal readonly struct IndexKey : IComparable<IndexKey>
 
     public int CompareTo(IndexKey other)
     {
-        int result = Value.CompareTo(other.Value);
+        int result = Value.AsSpan().SequenceCompareTo(other.Value);
 
         return result != 0 ? result : Version.CompareTo(other.Version);
     }
 
     public override string ToString()
     {
-        return $"\"{Value}\":{Version}";
+        return $"\"{Encoding.UTF8.GetString(Value)}\":{Version}";
     }
 
     public override int GetHashCode()
