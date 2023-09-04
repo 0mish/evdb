@@ -18,11 +18,11 @@ internal sealed class WriteAheadLog : IDisposable
         _writer = new BinaryWriter(_file, Encoding.UTF8, leaveOpen: true);
     }
 
-    public void LogSet(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value, ulong version)
+    public void LogSet(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value)
     {
         _writer.Write((byte)1);
+        _writer.Write7BitEncodedInt(key.Length);
         _writer.Write(key);
-        _writer.Write7BitEncodedInt64((long)version);
         _writer.Write7BitEncodedInt(value.Length);
         _writer.Write(value);
     }

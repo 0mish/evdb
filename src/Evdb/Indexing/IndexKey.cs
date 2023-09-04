@@ -1,32 +1,20 @@
-﻿using System.Text;
+﻿using System.Buffers.Binary;
 
 namespace Evdb.Indexing;
 
-internal readonly struct IndexKey : IComparable<IndexKey>
+internal readonly ref struct IndexKey
 {
-    public byte[] Value { get; }
-    public ulong Version { get; }
+    public ReadOnlySpan<byte> FullKey { get; }
+    public ReadOnlySpan<byte> Key => FullKey.Slice(0, FullKey.Length - sizeof(ulong));
+    public ulong Version => BinaryPrimitives.ReadUInt64LittleEndian(FullKey.Slice(FullKey.Length - sizeof(ulong)));
 
-    public IndexKey(byte[] value, ulong version)
+    public IndexKey(ReadOnlySpan<byte> value)
     {
-        Value = value;
-        Version = version;
+        FullKey = value;
     }
 
     public int CompareTo(IndexKey other)
     {
-        int result = Value.AsSpan().SequenceCompareTo(other.Value);
-
-        return result != 0 ? result : Version.CompareTo(other.Version);
-    }
-
-    public override string ToString()
-    {
-        return $"\"{Encoding.UTF8.GetString(Value)}\":{Version}";
-    }
-
-    public override int GetHashCode()
-    {
-        return HashCode.Combine(Value, Version);
+        return FullKey.SequenceCompareTo(other.FullKey);
     }
 }

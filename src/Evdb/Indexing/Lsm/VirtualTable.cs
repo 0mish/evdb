@@ -1,6 +1,8 @@
-﻿using System.Diagnostics;
-using System.Text;
+﻿using Evdb.Collections;
 using Evdb.IO;
+using System.Buffers.Binary;
+using System.Diagnostics;
+using System.Text;
 
 namespace Evdb.Indexing.Lsm;
 
@@ -10,42 +12,37 @@ internal sealed class VirtualTable : File, IDisposable
     private string DebuggerDisplay => $"VirtualTable {Metadata.Path}";
 
     private bool _disposed;
-
-    private IndexKey _minKey;
-    private IndexKey _maxKey;
-
-    private readonly SortedDictionary<IndexKey, byte[]> _kvs;
+    private readonly SkipList _kvs;
     private readonly WriteAheadLog _wal;
     private readonly IFileSystem _fs;
 
     public long Size { get; private set; }
-    public long MaxSize { get; }
+    public long Capacity { get; }
 
-    public VirtualTable(IFileSystem fs, FileMetadata metadata, long maxSize) : base(metadata)
+    public VirtualTable(IFileSystem fs, FileMetadata metadata, long capacity) : base(metadata)
     {
         ArgumentNullException.ThrowIfNull(fs, nameof(fs));
 
-        MaxSize = maxSize;
+        Capacity = capacity;
 
-        _kvs = new SortedDictionary<IndexKey, byte[]>();
+        _kvs = new SkipList();
         _wal = new WriteAheadLog(fs, metadata.Path);
         _fs = fs;
     }
 
-    // TODO: Handle case where the record itself is larger than the table size.
     public bool TrySet(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value, ulong version)
     {
         long newSize = Size + key.Length + value.Length;
 
-        if (newSize > MaxSize)
+        if (newSize > Capacity)
         {
             return false;
         }
 
-        IndexKey ikey = new(key.ToArray(), version);
+        ReadOnlySpan<byte> ikey = EncodeKey(key, version);
 
-        _wal.LogSet(key, value, version);
-        _kvs.Add(ikey, value.ToArray());
+        _wal.LogSet(ikey, value);
+        _kvs.Set(ikey, value);
 
         Size = newSize;
 
@@ -54,20 +51,9 @@ internal sealed class VirtualTable : File, IDisposable
 
     public bool TryGet(ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value, ulong version)
     {
-        IndexKey ikey = new(key.ToArray(), version);
+        ReadOnlySpan<byte> ikey = EncodeKey(key, version);
 
-        if (_kvs.Count == 0 || key.SequenceCompareTo(_minKey.Value) < 0 || key.SequenceCompareTo(_maxKey.Value) > 0)
-        {
-            value = default;
-
-            return false;
-        }
-
-        bool result = _kvs.TryGetValue(ikey, out byte[]? valueCopy);
-
-        value = valueCopy;
-
-        return result;
+        return _kvs.TryGet(ikey, out value);
     }
 
     // TODO: Consider empty tables.
@@ -79,24 +65,43 @@ internal sealed class VirtualTable : File, IDisposable
         using (BinaryWriter writer = new(file, Encoding.UTF8, leaveOpen: true))
         {
             BloomFilter filter = new(size: 4096);
+            SkipList.Iterator iter = _kvs.GetIterator();
 
-            foreach (KeyValuePair<IndexKey, byte[]> kv in _kvs)
+            iter.MoveToMin();
+
+            while (iter.TryMoveNext(out ReadOnlySpan<byte> key, out _))
             {
-                filter.Set(kv.Key.Value);
+                filter.Set(key);
             }
 
-            writer.WriteByteArray(filter.Buffer);
-            writer.WriteByteArray(_minKey.Value);
-            writer.WriteByteArray(_maxKey.Value);
+            _kvs.TryGetMin(out ReadOnlySpan<byte> minKey, out _);
+            _kvs.TryGetMax(out ReadOnlySpan<byte> maxKey, out _);
 
-            foreach (KeyValuePair<IndexKey, byte[]> kv in _kvs)
+            writer.WriteByteArray(filter.Buffer);
+            writer.WriteByteArray(minKey);
+            writer.WriteByteArray(maxKey);
+
+            iter.MoveToMin();
+
+            while (iter.TryMoveNext(out ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value))
             {
-                writer.WriteByteArray(kv.Key.Value);
-                writer.WriteByteArray(kv.Value);
+                writer.WriteByteArray(key);
+                writer.WriteByteArray(value);
             }
         }
 
         return metadata;
+    }
+
+    private static byte[] EncodeKey(ReadOnlySpan<byte> key, ulong version)
+    {
+        byte[] result = new byte[key.Length + sizeof(ulong)];
+        Span<byte> span = result;
+
+        key.CopyTo(span);
+        BinaryPrimitives.WriteUInt64LittleEndian(span.Slice(key.Length), version);
+
+        return result;
     }
 
     public void Dispose()

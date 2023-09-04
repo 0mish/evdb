@@ -1,12 +1,12 @@
 ﻿using Evdb.Indexing.Lsm;
 using Evdb.IO;
-using System.ComponentModel;
 using System.Diagnostics;
 
 Func<BenchmarkResult>[] benchmarks = new Func<BenchmarkResult>[]
 {
-    () => SingleWriterSingleReader(entries: 10000),
-    () => MultipleWritersSingleReader(entries: 10000)
+    () => SingleWriterSingleReader(entries: 100000),
+    () => MultipleWritersSingleReader(entries: 100000),
+    () => SingleWriterMultipleReader(entries: 100000),
 };
 
 string header = $"{"Benchmark Name",50} | {"Bytes Written/s",18:f2} | {"Bytes Read/s",18:f2} | {"Misses",10}";
@@ -17,7 +17,7 @@ Console.WriteLine(divider);
 
 foreach (Func<BenchmarkResult> benchmark in benchmarks)
 {
-    const int WarmUpCount = 3;
+    const int WarmUpCount = 5;
 
     // Warm up before actual result.
     for (int i = 0; i < WarmUpCount; i++)
@@ -105,6 +105,43 @@ static BenchmarkResult SingleWriterSingleReader(int entries)
     ulong readWrite = (ulong)entries * (12 + 64);
 
     return new BenchmarkResult("Single Writer then Single Reader", readWrite, readWrite, miss, wts, rts);
+}
+
+static BenchmarkResult SingleWriterMultipleReader(int entries)
+{
+    Dictionary<byte[], byte[]> kvs = GenerateKeyValues(entries, keySize: 12, valueSize: 64);
+    LsmIndexOptions options = new()
+    {
+        Path = "db",
+        FileSystem = new FileSystem()
+    };
+
+    using LsmIndex db = new(options);
+
+    Stopwatch sw = Stopwatch.StartNew();
+
+    foreach (KeyValuePair<byte[], byte[]> kv in kvs)
+    {
+        db.TrySet(kv.Key, kv.Value);
+    }
+
+    ulong miss = 0;
+    TimeSpan wts = sw.Elapsed;
+
+    // TODO: Use a fixed number of threads here.
+    Parallel.ForEach(kvs, kv =>
+    {
+        if (!db.TryGet(kv.Key, out ReadOnlySpan<byte> val) || !val.SequenceEqual(kv.Value))
+        {
+            miss++;
+        }
+    });
+
+    // TODO: Actually calculate metric from the index.
+    TimeSpan rts = sw.Elapsed - wts;
+    ulong readWrite = (ulong)entries * (12 + 64);
+
+    return new BenchmarkResult("Single Writer then Multiple Readers", readWrite, readWrite, miss, wts, rts);
 }
 
 static Dictionary<byte[], byte[]> GenerateKeyValues(int count, int keySize, int valueSize)

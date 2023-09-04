@@ -65,7 +65,7 @@ internal sealed class LsmIndex : IDisposable
                 _compactionQueue.Enqueue(new CompactionJob(_l0, CompactTable));
 
                 _l0n.Add(_l0);
-                _l0 = new VirtualTable(_fs, new FileMetadata(_manifest.Path, FileType.Log, _manifest.NextFileNumber()), _l0.MaxSize);
+                _l0 = new VirtualTable(_fs, new FileMetadata(_manifest.Path, FileType.Log, _manifest.NextFileNumber()), _l0.Capacity);
             }
         }
 

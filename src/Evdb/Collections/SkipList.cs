@@ -1,8 +1,10 @@
 ﻿namespace Evdb.Collections;
 
-internal sealed class SkipList<TKey, TValue>
+internal sealed class SkipList
 {
-    private int _level;
+    private const int MaxHeight = 13;
+
+    private int _height;
     private Node _head;
     private readonly Random _rand;
 
@@ -10,114 +12,48 @@ internal sealed class SkipList<TKey, TValue>
 
     public SkipList()
     {
-        _rand = new Random();
-        _level = -1;
-        _head = new Node(default!, default, 0);
+        _height = 0;
+        _head = new Node(default!, default!, MaxHeight);
+        _rand = new Random(0);
     }
 
-    public void Add(TKey key, TValue? value)
+    public void Set(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value)
     {
-        int level = RandomLevel();
-        Node node;
-        Node? next;
+        Node[] prevs = new Node[MaxHeight];
 
-        if (level > _level)
+        int height = RandomHeight();
+
+        FindGreaterOrEqual(key, prevs);
+
+        if (height > _height)
         {
-            node = _head;
-
-            _head = new Node(default!, default, level);
-            _level = level;
-
-            for (int i = 0; i < node.Forwards.Length; i++)
+            for (int i = _height; i < height; i++)
             {
-                _head.Forwards[i] = node.Forwards[i];
-            }
-        }
-
-        Node[] nodes = new Node[_level + 1];
-        node = _head;
-
-        for (int i = _level; i >= 0; i--)
-        {
-            next = node.Forwards[i];
-
-            while (next != null && Comparer<TKey>.Default.Compare(key, next.Key) < 0)
-            {
-                node = next;
-                next = next.Forwards[i];
+                prevs[i] = _head;
             }
 
-            nodes[i] = node;
+            _height = height;
         }
 
-        node = new Node(key, value, level);
+        Node node = new(key.ToArray(), value.ToArray(), height);
 
-        for (int i = 0; i <= level; i++)
+        for (int i = 0; i < height; i++)
         {
-            node.Forwards[i] = nodes[i].Forwards[i];
-            nodes[i].Forwards[i] = node;
+            node.Next[i] = prevs[i].Next[i];
+            prevs[i].Next[i] = node;
         }
 
         Count++;
     }
 
-    public bool Remove(TKey key)
+    public bool TryGet(ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
     {
-        Node[] nodes = new Node[_level + 1];
-        Node node = _head;
-        Node? next;
+        Node? node = FindGreaterOrEqual(key);
 
-        for (int i = _level; i >= 0; i--)
+        // TODO: optimize - Avoid a second sequence compare.
+        if (node != null && key.SequenceCompareTo(node.Key) == 0)
         {
-            next = node.Forwards[i];
-
-            while (next != null && Comparer<TKey>.Default.Compare(key, next.Key) < 0)
-            {
-                node = next;
-                next = next.Forwards[i];
-            }
-
-            nodes[i] = node;
-        }
-
-        next = node.Forwards[0];
-
-        if (next == null || Comparer<TKey>.Default.Compare(key, next.Key) != 0)
-        {
-            return false;
-        }
-
-        for (int i = 0; i < next.Forwards.Length; i++)
-        {
-            nodes[i].Forwards[i] = next.Forwards[i];
-        }
-
-        Count--;
-
-        return true;
-    }
-
-    public bool TryGetValue(TKey key, out TValue? value)
-    {
-        Node node = _head;
-        Node? next;
-
-        for (int i = _level; i >= 0; i--)
-        {
-            next = node.Forwards[i];
-
-            while (next != null && Comparer<TKey>.Default.Compare(key, next.Key) < 0)
-            {
-                node = next;
-                next = next.Forwards[i];
-            }
-        }
-
-        next = node.Forwards[0];
-
-        if (next != null && Comparer<TKey>.Default.Compare(key, next.Key) == 0)
-        {
-            value = next.Value;
+            value = node.Value;
 
             return true;
         }
@@ -127,11 +63,117 @@ internal sealed class SkipList<TKey, TValue>
         return false;
     }
 
-    private int RandomLevel()
+    public bool TryGetMax(out ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
     {
-        int result = 0;
+        Node? node = FindMax();
 
-        while (_rand.Next() % 2 == 0)
+        if (node != null)
+        {
+            key = node.Key;
+            value = node.Value;
+
+            return false;
+        }
+
+        key = default;
+        value = default;
+
+        return false;
+    }
+
+    public bool TryGetMin(out ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
+    {
+        Node? node = FindMin();
+
+        if (node != null)
+        {
+            key = node.Key;
+            value = node.Value;
+
+            return false;
+        }
+
+        key = default;
+        value = default;
+
+        return false;
+    }
+
+    public Iterator GetIterator()
+    {
+        return new Iterator(this);
+    }
+
+    private Node? FindMin()
+    {
+        return _head.Next[0];
+    }
+
+    private Node? FindMax()
+    {
+        Node? node = _head;
+
+        for (int i = _height; i >= 0; i--)
+        {
+            Node? next = node.Next[i];
+
+            while (next != null)
+            {
+                node = next;
+                next = next.Next[i];
+            }
+        }
+
+        return node;
+    }
+
+    private Node? FindLess(ReadOnlySpan<byte> key)
+    {
+        Node node = _head;
+
+        for (int i = _height; i >= 0; i--)
+        {
+            Node? next = node.Next[i];
+
+            while (next != null && key.SequenceCompareTo(next.Key) > 0)
+            {
+                node = next;
+                next = next.Next[i];
+            }
+        }
+
+        return node;
+    }
+
+    private Node? FindGreaterOrEqual(ReadOnlySpan<byte> key, Node?[]? prevs = null)
+    {
+        Node node = _head;
+        Node? next = null;
+
+        for (int i = _height; i >= 0; i--)
+        {
+            next = node.Next[i];
+
+            while (next != null && key.SequenceCompareTo(next.Key) > 0)
+            {
+                node = next;
+                next = next.Next[i];
+            }
+
+            if (prevs != null)
+            {
+                prevs[i] = node;
+            }
+        }
+
+        return next;
+    }
+
+    private int RandomHeight()
+    {
+        int result = 1;
+
+        while (result < MaxHeight && _rand.Next() % 2 == 0)
         {
             result++;
         }
@@ -139,17 +181,87 @@ internal sealed class SkipList<TKey, TValue>
         return result;
     }
 
-    private class Node
+    internal class Node
     {
-        public TKey Key { get; set; }
-        public TValue? Value { get; set; }
-        public Node?[] Forwards { get; set; }
+        private readonly byte[] _key;
+        private readonly byte[] _value;
 
-        public Node(TKey key, TValue? value, int level)
+        public ReadOnlySpan<byte> Key => _key;
+        public ReadOnlySpan<byte> Value => _value;
+        public Node[] Next { get; }
+
+        public Node(byte[] key, byte[] value, int height)
         {
-            Key = key;
-            Value = value;
-            Forwards = new Node[level + 1];
+            _key = key;
+            _value = value;
+            Next = new Node[height + 1];
+        }
+    }
+
+    public struct Iterator
+    {
+        private Node? _node;
+        private readonly SkipList _sl;
+
+        internal Iterator(SkipList sl)
+        {
+            _sl = sl;
+
+            MoveToMin();
+        }
+
+        public void MoveToMin()
+        {
+            _node = _sl.FindMin();
+        }
+
+        public void MoveToMax()
+        {
+            _node = _sl.FindMax();
+        }
+
+        public void MoveTo(ReadOnlySpan<byte> key)
+        {
+            _node = _sl.FindGreaterOrEqual(key);
+        }
+
+        public bool TryMoveNext(out ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
+        {
+            if (_node != null)
+            {
+                key = _node.Key;
+                value = _node.Value;
+
+                _node = _node.Next[0];
+
+                return true;
+            }
+
+            key = default;
+            value = default;
+
+            return false;
+        }
+
+        public bool TryMovePrevious(out ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
+        {
+            if (_node != null)
+            {
+                Node? node = _sl.FindLess(_node.Key);
+
+                if (node != null)
+                {
+                    key = node.Key;
+                    value = node.Value;
+
+                    return true;
+                }
+            }
+
+            key = default;
+            value = default;
+
+            return false;
         }
     }
 }
