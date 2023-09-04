@@ -1,5 +1,6 @@
 ﻿using Evdb.Indexing.Lsm;
 using Evdb.IO;
+using System.ComponentModel;
 using System.Diagnostics;
 
 Func<BenchmarkResult>[] benchmarks = new Func<BenchmarkResult>[]
@@ -8,7 +9,7 @@ Func<BenchmarkResult>[] benchmarks = new Func<BenchmarkResult>[]
     () => MultipleWritersSingleReader(entries: 10000)
 };
 
-string header = $"{"Benchmark Name",50} | {"Bytes Written/s",18:f2} | {"Bytes Read/s",18:f2}";
+string header = $"{"Benchmark Name",50} | {"Bytes Written/s",18:f2} | {"Bytes Read/s",18:f2} | {"Misses",10}";
 string divider = new('-', header.Length);
 
 Console.WriteLine(header);
@@ -16,14 +17,22 @@ Console.WriteLine(divider);
 
 foreach (Func<BenchmarkResult> benchmark in benchmarks)
 {
+    const int WarmUpCount = 3;
+
+    // Warm up before actual result.
+    for (int i = 0; i < WarmUpCount; i++)
+    {
+        benchmark();
+    }
+
     BenchmarkResult result = benchmark();
 
     const double Scale = 1024 * 1024;
 
-    double bytesWrittenPerSecond = result.BytesWritten / Scale / result.Duration.TotalSeconds;
-    double bytesReadPerSecond = result.BytesRead / Scale / result.Duration.TotalSeconds;
+    double bytesWrittenPerSecond = result.BytesWritten / Scale / result.WriteDuration.TotalSeconds;
+    double bytesReadPerSecond = result.BytesRead / Scale / result.ReadDuration.TotalSeconds;
 
-    Console.WriteLine($"{result.Name,50} | {bytesWrittenPerSecond,13:f2} mb/s | {bytesReadPerSecond,13:f2} mb/s");
+    Console.WriteLine($"{result.Name,50} | {bytesWrittenPerSecond,13:f2} mb/s | {bytesReadPerSecond,13:f2} mb/s | {result.Misses,10}");
 }
 
 static BenchmarkResult MultipleWritersSingleReader(int entries)
@@ -47,7 +56,7 @@ static BenchmarkResult MultipleWritersSingleReader(int entries)
     ulong miss = 0;
     TimeSpan wts = sw.Elapsed;
 
-    foreach (var kv in kvs)
+    foreach (KeyValuePair<byte[], byte[]> kv in kvs)
     {
         if (!db.TryGet(kv.Key, out ReadOnlySpan<byte> val) || !val.SequenceEqual(kv.Value))
         {
@@ -59,7 +68,7 @@ static BenchmarkResult MultipleWritersSingleReader(int entries)
     TimeSpan rts = sw.Elapsed - wts;
     ulong readWrite = (ulong)entries * (12 + 64);
 
-    return new BenchmarkResult("Multiple Writers then Single Reader", readWrite, readWrite, wts + rts);
+    return new BenchmarkResult("Multiple Writers then Single Reader", readWrite, readWrite, miss, wts, rts);
 }
 
 static BenchmarkResult SingleWriterSingleReader(int entries)
@@ -75,7 +84,7 @@ static BenchmarkResult SingleWriterSingleReader(int entries)
 
     Stopwatch sw = Stopwatch.StartNew();
 
-    foreach (var kv in kvs)
+    foreach (KeyValuePair<byte[], byte[]> kv in kvs)
     {
         db.TrySet(kv.Key, kv.Value);
     }
@@ -83,7 +92,7 @@ static BenchmarkResult SingleWriterSingleReader(int entries)
     ulong miss = 0;
     TimeSpan wts = sw.Elapsed;
 
-    foreach (var kv in kvs)
+    foreach (KeyValuePair<byte[], byte[]> kv in kvs)
     {
         if (!db.TryGet(kv.Key, out ReadOnlySpan<byte> val) || !val.SequenceEqual(kv.Value))
         {
@@ -95,7 +104,7 @@ static BenchmarkResult SingleWriterSingleReader(int entries)
     TimeSpan rts = sw.Elapsed - wts;
     ulong readWrite = (ulong)entries * (12 + 64);
 
-    return new BenchmarkResult("Single Writer then Single Reader", readWrite, readWrite, wts + rts);
+    return new BenchmarkResult("Single Writer then Single Reader", readWrite, readWrite, miss, wts, rts);
 }
 
 static Dictionary<byte[], byte[]> GenerateKeyValues(int count, int keySize, int valueSize)
@@ -117,4 +126,4 @@ static Dictionary<byte[], byte[]> GenerateKeyValues(int count, int keySize, int 
     return kvs;
 }
 
-record class BenchmarkResult(string Name, ulong BytesWritten, ulong BytesRead, TimeSpan Duration);
+record class BenchmarkResult(string Name, ulong BytesWritten, ulong BytesRead, ulong Misses, TimeSpan WriteDuration, TimeSpan ReadDuration);
