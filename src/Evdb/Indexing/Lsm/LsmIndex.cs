@@ -39,6 +39,9 @@ internal sealed class LsmIndex : IDisposable
         // people would like to control when IO occurs.
         _manifest = new Manifest(_fs, options.Path, _sync);
 
+        // TODO:
+        //
+        // Make the number of compaction thread configurable.
         _compactionQueue = new CompactionQueue();
         _compactionThread = new CompactionThread(_compactionQueue);
 
