@@ -49,7 +49,7 @@ internal sealed class LsmIndex : IDisposable
         _l0n = new List<VirtualTable>();
     }
 
-    public bool TrySet(in ReadOnlySpan<byte> key, in ReadOnlySpan<byte> value)
+    public bool TrySet(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value)
     {
         if (Volatile.Read(ref _disposed) == 1)
         {
@@ -74,7 +74,7 @@ internal sealed class LsmIndex : IDisposable
         return true;
     }
 
-    public bool TryGet(in ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
+    public bool TryGet(ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
     {
         if (Volatile.Read(ref _disposed) == 1)
         {
