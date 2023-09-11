@@ -4,9 +4,9 @@ using System.Diagnostics;
 
 Func<BenchmarkResult>[] benchmarks = new Func<BenchmarkResult>[]
 {
-    () => SingleWriterSingleReader(entries: 100000),
-    () => MultipleWritersSingleReader(entries: 100000),
-    () => SingleWriterMultipleReader(entries: 100000),
+    () => SingleWriterSingleReader(entries: 10000),
+    () => MultipleWritersSingleReader(entries: 10000),
+    () => SingleWriterMultipleReader(entries: 10000),
 };
 
 string header = $"{"Benchmark Name",50} | {"Bytes Written/s",18:f2} | {"Bytes Read/s",18:f2} | {"Misses",10}";
@@ -37,7 +37,7 @@ foreach (Func<BenchmarkResult> benchmark in benchmarks)
 
 static BenchmarkResult MultipleWritersSingleReader(int entries)
 {
-    Dictionary<byte[], byte[]> kvs = GenerateKeyValues(entries, keySize: 12, valueSize: 64);
+    List<KeyValuePair<byte[], byte[]>> kvs = GenerateKeyValues(entries, keySize: 12, valueSize: 64);
     LsmIndexOptions options = new()
     {
         Path = "db"
@@ -73,7 +73,7 @@ static BenchmarkResult MultipleWritersSingleReader(int entries)
 
 static BenchmarkResult SingleWriterSingleReader(int entries)
 {
-    Dictionary<byte[], byte[]> kvs = GenerateKeyValues(entries, keySize: 12, valueSize: 64);
+    List<KeyValuePair<byte[], byte[]>> kvs = GenerateKeyValues(entries, keySize: 12, valueSize: 64);
     LsmIndexOptions options = new()
     {
         Path = "db",
@@ -109,7 +109,7 @@ static BenchmarkResult SingleWriterSingleReader(int entries)
 
 static BenchmarkResult SingleWriterMultipleReader(int entries)
 {
-    Dictionary<byte[], byte[]> kvs = GenerateKeyValues(entries, keySize: 12, valueSize: 64);
+    List<KeyValuePair<byte[], byte[]>> kvs = GenerateKeyValues(entries, keySize: 12, valueSize: 64);
     LsmIndexOptions options = new()
     {
         Path = "db",
@@ -144,10 +144,10 @@ static BenchmarkResult SingleWriterMultipleReader(int entries)
     return new BenchmarkResult("Single Writer then Multiple Readers", readWrite, readWrite, miss, wts, rts);
 }
 
-static Dictionary<byte[], byte[]> GenerateKeyValues(int count, int keySize, int valueSize)
+static List<KeyValuePair<byte[], byte[]>> GenerateKeyValues(int count, int keySize, int valueSize)
 {
     Random random = new(Seed: 0);
-    Dictionary<byte[], byte[]> kvs = new();
+    List<KeyValuePair<byte[], byte[]>> kvs = new();
 
     byte[] key = new byte[keySize];
     byte[] value = new byte[valueSize];
@@ -157,7 +157,7 @@ static Dictionary<byte[], byte[]> GenerateKeyValues(int count, int keySize, int 
         random.NextBytes(key);
         random.NextBytes(value);
 
-        kvs[key] = value.ToArray();
+        kvs.Add(new(key.ToArray(), value.ToArray()));
     }
 
     return kvs;
