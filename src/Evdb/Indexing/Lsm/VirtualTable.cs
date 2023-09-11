@@ -71,21 +71,21 @@ internal sealed class VirtualTable : File, IDisposable
 
             while (iter.TryMoveNext(out ReadOnlySpan<byte> key, out _))
             {
-                filter.Set(key);
+                filter.Set(key.Slice(0, key.Length - sizeof(ulong)));
             }
 
             _kvs.TryGetMin(out ReadOnlySpan<byte> minKey, out _);
             _kvs.TryGetMax(out ReadOnlySpan<byte> maxKey, out _);
 
             writer.WriteByteArray(filter.Buffer);
-            writer.WriteByteArray(minKey);
-            writer.WriteByteArray(maxKey);
+            writer.WriteByteArray(minKey.Slice(0, minKey.Length - sizeof(ulong)));
+            writer.WriteByteArray(maxKey.Slice(0, maxKey.Length - sizeof(ulong)));
 
             iter.MoveToMin();
 
             while (iter.TryMoveNext(out ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value))
             {
-                writer.WriteByteArray(key);
+                writer.WriteByteArray(key.Slice(0, key.Length - sizeof(ulong)));
                 writer.WriteByteArray(value);
             }
         }

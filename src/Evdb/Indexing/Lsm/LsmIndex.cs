@@ -62,10 +62,12 @@ internal sealed class LsmIndex : IDisposable
         {
             while (!_l0.TrySet(key, value, version))
             {
-                _compactionQueue.Enqueue(new CompactionJob(_l0, CompactTable));
+                VirtualTable oldL0 = _l0;
 
                 _l0n.Add(_l0);
                 _l0 = new VirtualTable(_fs, new FileMetadata(_manifest.Path, FileType.Log, _manifest.NextFileNumber()), _l0.Capacity);
+
+                _compactionQueue.Enqueue(new CompactionJob(oldL0, CompactTable));
             }
         }
 
@@ -161,10 +163,10 @@ internal sealed class LsmIndex : IDisposable
         _compactionQueue.Dispose();
         _compactionThread.Dispose();
 
-        _l0.Dispose();
-
         lock (_sync)
         {
+            _l0.Dispose();
+
             foreach (VirtualTable table in _l0n)
             {
                 table.Dispose();

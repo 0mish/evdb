@@ -55,27 +55,27 @@ internal sealed class PhysicalTable : File, IDisposable
             return false;
         }
 
-        _file.Seek(_dataPosition, SeekOrigin.Begin);
-
         // Otherwise we perform the look up in the file.
-        while (_file.Position < _file.Length)
-        {
-            Span<byte> fileKey = _reader.ReadByteArray();
-            int fileValueLength = _reader.Read7BitEncodedInt();
+        Iterator iter = GetIterator();
 
-            if (fileKey == key)
+        while (iter.TryMoveNext(out ReadOnlySpan<byte> fileKey, out ReadOnlySpan<byte> fileValue))
+        {
+            if (fileKey.SequenceEqual(key))
             {
-                value = _reader.ReadBytes(fileValueLength);
+                value = fileValue;
 
                 return true;
             }
-
-            _file.Seek(fileValueLength, SeekOrigin.Current);
         }
 
         value = default;
 
         return false;
+    }
+
+    public Iterator GetIterator()
+    {
+        return new Iterator(_reader, _dataPosition);
     }
 
     public void Dispose()
@@ -89,5 +89,40 @@ internal sealed class PhysicalTable : File, IDisposable
         _file.Dispose();
 
         _disposed = true;
+    }
+
+    public readonly struct Iterator
+    {
+        private readonly BinaryReader _reader;
+        private readonly long _dataPosition;
+
+        public Iterator(BinaryReader reader, long position)
+        {
+            _reader = reader;
+            _dataPosition = position;
+
+            MoveToMin();
+        }
+
+        public readonly void MoveToMin()
+        {
+            _reader.BaseStream.Seek(_dataPosition, SeekOrigin.Begin);
+        }
+
+        public readonly bool TryMoveNext(out ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
+        {
+            if (_reader.BaseStream.Position < _reader.BaseStream.Length)
+            {
+                key = _reader.ReadByteArray();
+                value = _reader.ReadByteArray();
+
+                return true;
+            }
+
+            key = default;
+            value = default;
+
+            return false;
+        }
     }
 }
