@@ -37,12 +37,10 @@ internal sealed class PhysicalTable : File, IDisposable
         _dataPosition = _file.Position;
     }
 
-    public bool TryGet(ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value, ulong version)
+    public bool TryGet(ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
     {
-        ReadOnlySpan<byte> ikey = IndexKey.Encode(key, version);
-
         // If not in range of keys in the table, we exit early.
-        if (ikey.SequenceCompareTo(_minKey) < 0 || ikey.SequenceCompareTo(_maxKey) > 0)
+        if (key.SequenceCompareTo(_minKey) < 0 || key.SequenceCompareTo(_maxKey) > 0)
         {
             value = default;
 
@@ -50,7 +48,7 @@ internal sealed class PhysicalTable : File, IDisposable
         }
 
         // If not in filter, we exit early.
-        if (!_filter.Test(ikey))
+        if (!_filter.Test(key))
         {
             value = default;
 
@@ -60,11 +58,11 @@ internal sealed class PhysicalTable : File, IDisposable
         // Otherwise we perform the look up in the file.
         Iterator iter = GetIterator();
 
-        while (iter.TryMoveNext(out ReadOnlySpan<byte> fileKey, out ReadOnlySpan<byte> fileValue))
+        while (iter.TryMoveNext(out ReadOnlySpan<byte> fkey, out ReadOnlySpan<byte> fvalue))
         {
-            if (fileKey.SequenceEqual(ikey))
+            if (fkey.SequenceEqual(key))
             {
-                value = fileValue;
+                value = fvalue;
 
                 return true;
             }

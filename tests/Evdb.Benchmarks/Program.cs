@@ -76,8 +76,7 @@ static BenchmarkResult SingleWriterSingleReader(int entries)
     List<KeyValuePair<byte[], byte[]>> kvs = GenerateKeyValues(entries, keySize: 12, valueSize: 64);
     LsmIndexOptions options = new()
     {
-        Path = "db",
-        FileSystem = new FileSystem()
+        Path = "db"
     };
 
     using LsmIndex db = new(options);

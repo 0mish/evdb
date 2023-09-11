@@ -30,7 +30,7 @@ internal sealed class VirtualTable : File, IDisposable
         _fs = fs;
     }
 
-    public bool TrySet(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value, ulong version)
+    public bool TrySet(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value)
     {
         long newSize = Size + key.Length + value.Length;
 
@@ -39,21 +39,17 @@ internal sealed class VirtualTable : File, IDisposable
             return false;
         }
 
-        ReadOnlySpan<byte> ikey = IndexKey.Encode(key, version);
-
-        _wal.LogSet(ikey, value);
-        _kvs.Set(ikey, value);
+        _wal.LogSet(key, value);
+        _kvs.Set(key, value);
 
         Size = newSize;
 
         return true;
     }
 
-    public bool TryGet(ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value, ulong version)
+    public bool TryGet(ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
     {
-        ReadOnlySpan<byte> ikey = IndexKey.Encode(key, version);
-
-        return _kvs.TryGet(ikey, out value);
+        return _kvs.TryGet(key, out value);
     }
 
     public Iterator GetIterator()

@@ -57,10 +57,11 @@ internal sealed class LsmIndex : IDisposable
         }
 
         ulong version = _manifest.VersionNumber;
+        ReadOnlySpan<byte> ikey = IndexKey.Encode(key, version);
 
         lock (_sync)
         {
-            while (!_l0.TrySet(key, value, version))
+            while (!_l0.TrySet(ikey, value))
             {
                 VirtualTable oldL0 = _l0;
 
@@ -84,9 +85,10 @@ internal sealed class LsmIndex : IDisposable
         }
 
         ulong version = _manifest.VersionNumber;
+        ReadOnlySpan<byte> ikey = IndexKey.Encode(key, version);
         VirtualTable l0 = Volatile.Read(ref _l0);
 
-        if (l0.TryGet(key, out value, version))
+        if (l0.TryGet(ikey, out value))
         {
             return true;
         }
@@ -104,10 +106,9 @@ internal sealed class LsmIndex : IDisposable
                 state.Reference();
             }
 
-            // FIXME: l0n is not sorted by newest to oldest.
             foreach (VirtualTable table in l0n)
             {
-                if (table.TryGet(key, out value, version))
+                if (table.TryGet(ikey, out value))
                 {
                     return true;
                 }
@@ -115,7 +116,7 @@ internal sealed class LsmIndex : IDisposable
 
             foreach (FileId fileId in state.Files)
             {
-                if (_manifest.Resolve(fileId) is PhysicalTable table && table.TryGet(key, out value, version))
+                if (_manifest.Resolve(fileId) is PhysicalTable table && table.TryGet(ikey, out value))
                 {
                     return true;
                 }
