@@ -1,5 +1,4 @@
 ﻿using Evdb.Indexing.Lsm;
-using System.Buffers.Binary;
 using System.Text;
 using System.Text.Json;
 
@@ -8,7 +7,7 @@ namespace Evdb;
 public sealed class RecordStream
 {
     private bool _hasCount;
-    private uint _count;
+    private int _count;
 
     private readonly object _sync;
     private readonly byte[] _key;
@@ -21,7 +20,7 @@ public sealed class RecordStream
         _key = Encoding.UTF8.GetBytes(name);
     }
 
-    public void Append(in ReadOnlySpan<byte> value)
+    public void Append(string type, ReadOnlySpan<byte> json)
     {
         lock (_sync)
         {
@@ -32,13 +31,13 @@ public sealed class RecordStream
                 _hasCount = true;
             }
 
-            Span<byte> key = EncodeKey(_count++);
+            ReadOnlySpan<byte> key = RecordKey.Encode(_key, _count++);
 
-            _index.TrySet(key, value);
+            _index.TrySet(key, json);
         }
     }
 
-    public void AppendJson<T>(T value)
+    public void Append<T>(string type, T value)
     {
         using MemoryStream stream = new();
 
@@ -47,27 +46,21 @@ public sealed class RecordStream
         ReadOnlySpan<byte> buffer = stream.GetBuffer();
         ReadOnlySpan<byte> json = buffer[..(int)stream.Length];
 
-        Append(json);
+        Append(type, json);
     }
 
     public Iterator GetIterator()
     {
-        throw new NotImplementedException();
-    }
-
-    // FIXME: optimize - remove unnecessary allocations and remove bound checks.
-    private byte[] EncodeKey(uint count)
-    {
-        byte[] result = new byte[_key.Length + sizeof(uint)];
-
-        _key.AsSpan().CopyTo(result);
-        BinaryPrimitives.WriteUInt32LittleEndian(result.AsSpan().Slice(_key.Length), count);
-
-        return result;
+        return new Iterator();
     }
 
     public struct Iterator
     {
+        public bool TryMoveNext(out Record record)
+        {
+            record = default;
 
+            return false;
+        }
     }
 }

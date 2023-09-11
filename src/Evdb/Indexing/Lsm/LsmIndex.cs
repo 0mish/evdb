@@ -81,9 +81,8 @@ internal sealed class LsmIndex : IDisposable
 
         ulong version = _manifest.VersionNumber;
         ReadOnlySpan<byte> ikey = IndexKey.Encode(key, version);
-        VirtualTable l0 = Volatile.Read(ref _l0);
 
-        if (l0.TryGet(ikey, out value))
+        if (_l0.TryGet(ikey, out value))
         {
             return true;
         }
