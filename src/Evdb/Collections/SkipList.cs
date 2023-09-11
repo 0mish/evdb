@@ -127,24 +127,6 @@ internal sealed class SkipList
         return node;
     }
 
-    private Node? FindLess(ReadOnlySpan<byte> key)
-    {
-        Node node = _head;
-
-        for (int i = _height; i >= 0; i--)
-        {
-            Node? next = node.Next[i];
-
-            while (next != null && key.SequenceCompareTo(next.Key) > 0)
-            {
-                node = next;
-                next = next.Next[i];
-            }
-        }
-
-        return node;
-    }
-
     private Node? FindGreaterOrEqual(ReadOnlySpan<byte> key, Node?[]? prevs = null)
     {
         Node node = _head;
@@ -203,11 +185,19 @@ internal sealed class SkipList
         private Node? _node;
         private readonly SkipList _sl;
 
-        internal Iterator(SkipList sl)
+        public ReadOnlySpan<byte> Key => _node != null ? _node.Key : default;
+        public ReadOnlySpan<byte> Value => _node != null ? _node.Value : default;
+
+        public Iterator(SkipList sl)
         {
             _sl = sl;
 
             MoveToMin();
+        }
+        
+        public bool Valid()
+        {
+            return _node != null;
         }
 
         public void MoveToMin()
@@ -215,53 +205,17 @@ internal sealed class SkipList
             _node = _sl.FindMin();
         }
 
-        public void MoveToMax()
-        {
-            _node = _sl.FindMax();
-        }
-
         public void MoveTo(ReadOnlySpan<byte> key)
         {
             _node = _sl.FindGreaterOrEqual(key);
         }
 
-        public bool TryMoveNext(out ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
+        public void MoveNext()
         {
             if (_node != null)
             {
-                key = _node.Key;
-                value = _node.Value;
-
                 _node = _node.Next[0];
-
-                return true;
             }
-
-            key = default;
-            value = default;
-
-            return false;
-        }
-
-        public bool TryMovePrevious(out ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
-        {
-            if (_node != null)
-            {
-                Node? node = _sl.FindLess(_node.Key);
-
-                if (node != null)
-                {
-                    key = node.Key;
-                    value = node.Value;
-
-                    return true;
-                }
-            }
-
-            key = default;
-            value = default;
-
-            return false;
         }
     }
 }

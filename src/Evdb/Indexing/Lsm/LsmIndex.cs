@@ -127,6 +127,11 @@ internal sealed class LsmIndex : IDisposable
         return false;
     }
 
+    public Iterator GetIterator()
+    {
+        return new Iterator(this);
+    }
+
     private void CompactTable(VirtualTable vtable)
     {
         // Flush the virtual table to disk.
@@ -170,5 +175,60 @@ internal sealed class LsmIndex : IDisposable
 
         _manifest.Dispose();
         _disposed = true;
+    }
+
+    public class Iterator : IIterator
+    {
+        private readonly MergeIterator _iter;
+
+        public ReadOnlySpan<byte> Key => _iter.Key;
+        public ReadOnlySpan<byte> Value => _iter.Value;
+
+        internal Iterator(LsmIndex index)
+        {
+            lock (index._sync)
+            {
+                Manifest manifest = index._manifest;
+                ManifestState state = manifest.Current;
+                List<IIterator> iters = new();
+
+                foreach (VirtualTable table in index._l0n)
+                {
+                    iters.Add(table.GetIterator());
+                }
+
+                foreach (FileId fileId in state.Files)
+                {
+                    if (manifest.Resolve(fileId) is PhysicalTable table)
+                    {
+                        iters.Add(table.GetIterator());
+                    }
+                }
+
+                iters.Add(index._l0.GetIterator());
+
+                _iter = new MergeIterator(iters.ToArray());
+            }
+        }
+
+        public bool Valid()
+        {
+            return _iter.Valid();
+        }
+
+        public void MoveToMin()
+        {
+            _iter.MoveToMin();
+        }
+
+        public void MoveTo(ReadOnlySpan<byte> key)
+        {
+            _iter.MoveTo(key);
+        }
+
+        public void MoveNext()
+        {
+            _iter.MoveNext();
+        }
     }
 }

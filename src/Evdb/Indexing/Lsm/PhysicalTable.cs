@@ -58,11 +58,11 @@ internal sealed class PhysicalTable : File, IDisposable
         // Otherwise we perform the look up in the file.
         Iterator iter = GetIterator();
 
-        while (iter.TryMoveNext(out ReadOnlySpan<byte> fkey, out ReadOnlySpan<byte> fvalue))
+        for (iter.MoveToMin(); iter.Valid(); iter.MoveNext())
         {
-            if (fkey.SequenceEqual(key))
+            if (iter.Key.SequenceEqual(key))
             {
-                value = fvalue;
+                value = iter.Value;
 
                 return true;
             }
@@ -91,10 +91,16 @@ internal sealed class PhysicalTable : File, IDisposable
         _disposed = true;
     }
 
-    public readonly struct Iterator
+    public class Iterator : IIterator
     {
+        private byte[]? _key;
+        private byte[]? _value;
+
         private readonly BinaryReader _reader;
         private readonly long _dataPosition;
+
+        public ReadOnlySpan<byte> Key => _key;
+        public ReadOnlySpan<byte> Value => _value;
 
         public Iterator(BinaryReader reader, long position)
         {
@@ -104,25 +110,32 @@ internal sealed class PhysicalTable : File, IDisposable
             MoveToMin();
         }
 
-        public readonly void MoveToMin()
+        public bool Valid()
         {
-            _reader.BaseStream.Seek(_dataPosition, SeekOrigin.Begin);
+            return _reader.BaseStream.Position < _reader.BaseStream.Length;
         }
 
-        public readonly bool TryMoveNext(out ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
+        public void MoveToMin()
         {
-            if (_reader.BaseStream.Position < _reader.BaseStream.Length)
+            _reader.BaseStream.Seek(_dataPosition, SeekOrigin.Begin);
+
+            MoveNext();
+        }
+
+        public void MoveTo(ReadOnlySpan<byte> key)
+        {
+            MoveToMin();
+
+            while (Valid() && key.SequenceCompareTo(Key) < 0)
             {
-                key = _reader.ReadByteArray();
-                value = _reader.ReadByteArray();
-
-                return true;
+                MoveNext();
             }
+        }
 
-            key = default;
-            value = default;
-
-            return false;
+        public void MoveNext()
+        {
+            _key = _reader.ReadByteArray();
+            _value = _reader.ReadByteArray();
         }
     }
 }

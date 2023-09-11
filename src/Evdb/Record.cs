@@ -1,4 +1,6 @@
-﻿namespace Evdb;
+﻿using System.Text.Json;
+
+namespace Evdb;
 
 public readonly ref struct Record
 {
@@ -9,5 +11,10 @@ public readonly ref struct Record
     {
         Type = type;
         Data = data;
+    }
+
+    public T? Decode<T>()
+    {
+        return JsonSerializer.Deserialize<T>(Data);
     }
 }

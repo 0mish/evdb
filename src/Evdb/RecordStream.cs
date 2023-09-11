@@ -51,16 +51,42 @@ public sealed class RecordStream
 
     public Iterator GetIterator()
     {
-        return new Iterator();
+        return new Iterator(this);
     }
 
-    public struct Iterator
+    public class Iterator
     {
-        public bool TryMoveNext(out Record record)
-        {
-            record = default;
+        private readonly LsmIndex.Iterator _iter;
+        private readonly RecordStream _stream;
 
-            return false;
+        public Record Record => Valid() ? new Record(default, _iter.Value) : default;
+
+        internal Iterator(RecordStream stream)
+        {
+            _stream = stream;
+            _iter = stream._index.GetIterator();
+        }
+
+        public bool Valid()
+        {
+            return _iter.Valid() && _iter.Key.StartsWith(_stream._key);
+        }
+
+        public void MoveToFirst()
+        {
+            _iter.MoveTo(_stream._key);
+        }
+
+        public void MoveTo(int count)
+        {
+            ReadOnlySpan<byte> key = RecordKey.Encode(_stream._key, count);
+
+            _iter.MoveTo(key);
+        }
+
+        public void MoveNext()
+        {
+            _iter.MoveNext();
         }
     }
 }

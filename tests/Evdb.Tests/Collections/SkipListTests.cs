@@ -81,7 +81,7 @@ public class SkipListTests
         int count = 0;
         SkipList.Iterator iter = _skipList.GetIterator();
 
-        while (iter.TryMoveNext(out ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value))
+        for (iter.MoveToMin(); iter.Valid(); iter.MoveNext())
         {
             count++;
         }

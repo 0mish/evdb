@@ -67,11 +67,9 @@ internal sealed class VirtualTable : File, IDisposable
             BloomFilter filter = new(size: 4096);
             SkipList.Iterator iter = _kvs.GetIterator();
 
-            iter.MoveToMin();
-
-            while (iter.TryMoveNext(out ReadOnlySpan<byte> key, out _))
+            for (iter.MoveToMin(); iter.Valid(); iter.MoveNext())
             {
-                filter.Set(key);
+                filter.Set(iter.Key);
             }
 
             _kvs.TryGetMin(out ReadOnlySpan<byte> minKey, out _);
@@ -81,12 +79,10 @@ internal sealed class VirtualTable : File, IDisposable
             writer.WriteByteArray(minKey);
             writer.WriteByteArray(maxKey);
 
-            iter.MoveToMin();
-
-            while (iter.TryMoveNext(out ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value))
+            for (iter.MoveToMin(); iter.Valid(); iter.MoveNext())
             {
-                writer.WriteByteArray(key);
-                writer.WriteByteArray(value);
+                writer.WriteByteArray(iter.Key);
+                writer.WriteByteArray(iter.Value);
             }
         }
 
@@ -104,13 +100,21 @@ internal sealed class VirtualTable : File, IDisposable
         _disposed = true;
     }
 
-    public struct Iterator
+    public class Iterator : IIterator
     {
         private SkipList.Iterator _iter;
+
+        public ReadOnlySpan<byte> Key => _iter.Key;
+        public ReadOnlySpan<byte> Value => _iter.Value;
 
         public Iterator(SkipList.Iterator iter)
         {
             _iter = iter;
+        }
+
+        public bool Valid()
+        {
+            return _iter.Valid();
         }
 
         public void MoveToMin()
@@ -123,9 +127,9 @@ internal sealed class VirtualTable : File, IDisposable
             _iter.MoveTo(key);
         }
 
-        public bool TryMoveNext(out ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
+        public void MoveNext()
         {
-            return _iter.TryMoveNext(out key, out value);
+            _iter.MoveNext();
         }
     }
 }
