@@ -39,8 +39,10 @@ internal sealed class PhysicalTable : File, IDisposable
 
     public bool TryGet(ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value, ulong version)
     {
+        ReadOnlySpan<byte> ikey = IndexKey.Encode(key, version);
+
         // If not in range of keys in the table, we exit early.
-        if (key.SequenceCompareTo(_minKey) < 0 || key.SequenceCompareTo(_maxKey) > 0)
+        if (ikey.SequenceCompareTo(_minKey) < 0 || ikey.SequenceCompareTo(_maxKey) > 0)
         {
             value = default;
 
@@ -48,7 +50,7 @@ internal sealed class PhysicalTable : File, IDisposable
         }
 
         // If not in filter, we exit early.
-        if (!_filter.Test(key))
+        if (!_filter.Test(ikey))
         {
             value = default;
 
@@ -60,7 +62,7 @@ internal sealed class PhysicalTable : File, IDisposable
 
         while (iter.TryMoveNext(out ReadOnlySpan<byte> fileKey, out ReadOnlySpan<byte> fileValue))
         {
-            if (fileKey.SequenceEqual(key))
+            if (fileKey.SequenceEqual(ikey))
             {
                 value = fileValue;
 

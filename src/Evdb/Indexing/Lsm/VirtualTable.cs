@@ -39,7 +39,7 @@ internal sealed class VirtualTable : File, IDisposable
             return false;
         }
 
-        ReadOnlySpan<byte> ikey = EncodeKey(key, version);
+        ReadOnlySpan<byte> ikey = IndexKey.Encode(key, version);
 
         _wal.LogSet(ikey, value);
         _kvs.Set(ikey, value);
@@ -51,7 +51,7 @@ internal sealed class VirtualTable : File, IDisposable
 
     public bool TryGet(ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value, ulong version)
     {
-        ReadOnlySpan<byte> ikey = EncodeKey(key, version);
+        ReadOnlySpan<byte> ikey = IndexKey.Encode(key, version);
 
         return _kvs.TryGet(ikey, out value);
     }
@@ -71,37 +71,26 @@ internal sealed class VirtualTable : File, IDisposable
 
             while (iter.TryMoveNext(out ReadOnlySpan<byte> key, out _))
             {
-                filter.Set(key.Slice(0, key.Length - sizeof(ulong)));
+                filter.Set(key);
             }
 
             _kvs.TryGetMin(out ReadOnlySpan<byte> minKey, out _);
             _kvs.TryGetMax(out ReadOnlySpan<byte> maxKey, out _);
 
             writer.WriteByteArray(filter.Buffer);
-            writer.WriteByteArray(minKey.Slice(0, minKey.Length - sizeof(ulong)));
-            writer.WriteByteArray(maxKey.Slice(0, maxKey.Length - sizeof(ulong)));
+            writer.WriteByteArray(minKey);
+            writer.WriteByteArray(maxKey);
 
             iter.MoveToMin();
 
             while (iter.TryMoveNext(out ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value))
             {
-                writer.WriteByteArray(key.Slice(0, key.Length - sizeof(ulong)));
+                writer.WriteByteArray(key);
                 writer.WriteByteArray(value);
             }
         }
 
         return metadata;
-    }
-
-    private static byte[] EncodeKey(ReadOnlySpan<byte> key, ulong version)
-    {
-        byte[] result = new byte[key.Length + sizeof(ulong)];
-        Span<byte> span = result;
-
-        key.CopyTo(span);
-        BinaryPrimitives.WriteUInt64LittleEndian(span.Slice(key.Length), version);
-
-        return result;
     }
 
     public void Dispose()
