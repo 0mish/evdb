@@ -1,23 +1,30 @@
 ﻿using Evdb.Indexing.Lsm;
+using System.Collections;
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 
 namespace Evdb;
 
+[DebuggerDisplay("Name = {Name}")]
 public sealed class RecordStream
 {
-    private bool _hasCount;
     private int _count;
+    private bool _hasCount;
 
     private readonly object _sync;
     private readonly byte[] _key;
     private readonly LsmIndex _index;
+
+    public string Name { get; }
 
     internal RecordStream(LsmIndex index, string name)
     {
         _sync = new object();
         _index = index;
         _key = Encoding.UTF8.GetBytes(name);
+
+        Name = name;
     }
 
     public void Append(Record record)
@@ -62,7 +69,7 @@ public sealed class RecordStream
         return new Iterator(this);
     }
 
-    public class Iterator
+    public class Iterator : IEnumerable<BoxedRecord>
     {
         private readonly LsmIndex.Iterator _iter;
         private readonly RecordStream _stream;
@@ -73,6 +80,8 @@ public sealed class RecordStream
         {
             _stream = stream;
             _iter = stream._index.GetIterator();
+
+            MoveToFirst();
         }
 
         public bool Valid()
@@ -95,6 +104,21 @@ public sealed class RecordStream
         public void MoveNext()
         {
             _iter.MoveNext();
+        }
+
+        public IEnumerator<BoxedRecord> GetEnumerator()
+        {
+            while (Valid())
+            {
+                yield return Record.Box();
+
+                MoveNext();
+            }
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
         }
     }
 }
