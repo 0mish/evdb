@@ -4,23 +4,18 @@ namespace Evdb.Indexing.Lsm;
 
 internal sealed class LsmIndex : IDisposable
 {
-    private int _disposed;
+    private bool _disposed;
 
-    // Locks.
     private readonly object _sync;
 
-    // Tables.
     private VirtualTable _l0;
     private readonly List<VirtualTable> _l0n;
 
-    // Compactions.
     private readonly CompactionQueue _compactionQueue;
     private readonly CompactionThread _compactionThread;
 
-    // Logs.
     private readonly Manifest _manifest;
 
-    // Other.
     private readonly IFileSystem _fs;
 
     public LsmIndex(LsmIndexOptions options)
@@ -51,7 +46,7 @@ internal sealed class LsmIndex : IDisposable
 
     public bool TrySet(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value)
     {
-        if (Volatile.Read(ref _disposed) == 1)
+        if (_disposed)
         {
             return false;
         }
@@ -77,7 +72,7 @@ internal sealed class LsmIndex : IDisposable
 
     public bool TryGet(ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
     {
-        if (Volatile.Read(ref _disposed) == 1)
+        if (_disposed)
         {
             value = default;
 
@@ -155,7 +150,7 @@ internal sealed class LsmIndex : IDisposable
 
     public void Dispose()
     {
-        if (Interlocked.Exchange(ref _disposed, 1) == 1)
+        if (_disposed)
         {
             return;
         }
@@ -175,5 +170,6 @@ internal sealed class LsmIndex : IDisposable
         }
 
         _manifest.Dispose();
+        _disposed = true;
     }
 }
