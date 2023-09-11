@@ -150,7 +150,7 @@ internal sealed class SkipList
         Node node = _head;
         Node? next = null;
 
-        for (int i = _height; i >= 0; i--)
+        for (int i = _height - 1; i >= 0; i--)
         {
             next = node.Next[i];
 
