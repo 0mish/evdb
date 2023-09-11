@@ -11,8 +11,8 @@ internal sealed class PhysicalTable : File, IDisposable
     private bool _disposed;
 
     private readonly BloomFilter _filter;
-    private readonly byte[] _maxKey;
-    private readonly byte[] _minKey;
+    private readonly byte[] _firstKey;
+    private readonly byte[] _lastKey;
     private readonly long _dataPosition;
 
     private readonly Stream _file;
@@ -31,8 +31,8 @@ internal sealed class PhysicalTable : File, IDisposable
         byte[] filterBuffer = _reader.ReadBytes(filterSize);
 
         _filter = new BloomFilter(filterBuffer);
-        _minKey = _reader.ReadByteArray();
-        _maxKey = _reader.ReadByteArray();
+        _firstKey = _reader.ReadByteArray();
+        _lastKey = _reader.ReadByteArray();
 
         _dataPosition = _file.Position;
     }
@@ -40,7 +40,7 @@ internal sealed class PhysicalTable : File, IDisposable
     public bool TryGet(ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
     {
         // If not in range of keys in the table, we exit early.
-        if (key.SequenceCompareTo(_minKey) < 0 || key.SequenceCompareTo(_maxKey) > 0)
+        if (key.SequenceCompareTo(_firstKey) < 0 || key.SequenceCompareTo(_lastKey) > 0)
         {
             value = default;
 
@@ -58,7 +58,7 @@ internal sealed class PhysicalTable : File, IDisposable
         // Otherwise we perform the look up in the file.
         Iterator iter = GetIterator();
 
-        for (iter.MoveToMin(); iter.Valid(); iter.MoveNext())
+        for (iter.MoveToFirst(); iter.Valid(); iter.MoveNext())
         {
             if (iter.Key.SequenceEqual(key))
             {
@@ -107,7 +107,7 @@ internal sealed class PhysicalTable : File, IDisposable
             _reader = reader;
             _dataPosition = position;
 
-            MoveToMin();
+            MoveToFirst();
         }
 
         public bool Valid()
@@ -116,7 +116,7 @@ internal sealed class PhysicalTable : File, IDisposable
             return _reader.BaseStream.Position < _reader.BaseStream.Length;
         }
 
-        public void MoveToMin()
+        public void MoveToFirst()
         {
             _reader.BaseStream.Seek(_dataPosition, SeekOrigin.Begin);
 
@@ -125,7 +125,7 @@ internal sealed class PhysicalTable : File, IDisposable
 
         public void MoveTo(ReadOnlySpan<byte> key)
         {
-            MoveToMin();
+            MoveToFirst();
 
             while (Valid() && key.SequenceCompareTo(Key) < 0)
             {

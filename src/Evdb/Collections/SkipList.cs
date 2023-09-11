@@ -63,9 +63,9 @@ internal sealed class SkipList
         return false;
     }
 
-    public bool TryGetMax(out ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
+    public bool TryGetLast(out ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
     {
-        Node? node = FindMax();
+        Node? node = FindLast();
 
         if (node != null)
         {
@@ -81,9 +81,9 @@ internal sealed class SkipList
         return false;
     }
 
-    public bool TryGetMin(out ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
+    public bool TryGetFirst(out ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
     {
-        Node? node = FindMin();
+        Node? node = FindFirst();
 
         if (node != null)
         {
@@ -104,12 +104,12 @@ internal sealed class SkipList
         return new Iterator(this);
     }
 
-    private Node? FindMin()
+    private Node? FindFirst()
     {
         return _head.Next[0];
     }
 
-    private Node? FindMax()
+    private Node? FindLast()
     {
         Node? node = _head;
 
@@ -192,7 +192,7 @@ internal sealed class SkipList
         {
             _sl = sl;
 
-            MoveToMin();
+            MoveToFirst();
         }
         
         public bool Valid()
@@ -200,9 +200,9 @@ internal sealed class SkipList
             return _node != null;
         }
 
-        public void MoveToMin()
+        public void MoveToFirst()
         {
-            _node = _sl.FindMin();
+            _node = _sl.FindFirst();
         }
 
         public void MoveTo(ReadOnlySpan<byte> key)

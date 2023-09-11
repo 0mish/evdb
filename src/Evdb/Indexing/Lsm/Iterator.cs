@@ -9,7 +9,7 @@ internal interface IIterator
 
     bool Valid();
 
-    void MoveToMin();
+    void MoveToFirst();
     void MoveTo(ReadOnlySpan<byte> key);
     void MoveNext();
 }
@@ -35,11 +35,11 @@ internal class MergeIterator : IIterator
         return _curr.Valid();
     }
 
-    public void MoveToMin()
+    public void MoveToFirst()
     {
         foreach (IIterator iter in _all)
         {
-            iter.MoveToMin();
+            iter.MoveToFirst();
         }
 
         _curr = GetMinIterator();

@@ -65,19 +65,19 @@ internal sealed class VirtualTable : File, IDisposable
             BloomFilter filter = new(size: 4096);
             SkipList.Iterator iter = _kvs.GetIterator();
 
-            for (iter.MoveToMin(); iter.Valid(); iter.MoveNext())
+            for (iter.MoveToFirst(); iter.Valid(); iter.MoveNext())
             {
                 filter.Set(iter.Key);
             }
 
-            _kvs.TryGetMin(out ReadOnlySpan<byte> minKey, out _);
-            _kvs.TryGetMax(out ReadOnlySpan<byte> maxKey, out _);
+            _kvs.TryGetFirst(out ReadOnlySpan<byte> firstKey, out _);
+            _kvs.TryGetLast(out ReadOnlySpan<byte> lastKey, out _);
 
             writer.WriteByteArray(filter.Buffer);
-            writer.WriteByteArray(minKey);
-            writer.WriteByteArray(maxKey);
+            writer.WriteByteArray(firstKey);
+            writer.WriteByteArray(lastKey);
 
-            for (iter.MoveToMin(); iter.Valid(); iter.MoveNext())
+            for (iter.MoveToFirst(); iter.Valid(); iter.MoveNext())
             {
                 writer.WriteByteArray(iter.Key);
                 writer.WriteByteArray(iter.Value);
@@ -115,9 +115,9 @@ internal sealed class VirtualTable : File, IDisposable
             return _iter.Valid();
         }
 
-        public void MoveToMin()
+        public void MoveToFirst()
         {
-            _iter.MoveToMin();
+            _iter.MoveToFirst();
         }
 
         public void MoveTo(ReadOnlySpan<byte> key)

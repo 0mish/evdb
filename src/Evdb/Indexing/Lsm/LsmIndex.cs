@@ -211,9 +211,9 @@ internal sealed class LsmIndex : IDisposable
             return _iter.Valid();
         }
 
-        public void MoveToMin()
+        public void MoveToFirst()
         {
-            _iter.MoveToMin();
+            _iter.MoveToFirst();
         }
 
         public void MoveTo(ReadOnlySpan<byte> key)

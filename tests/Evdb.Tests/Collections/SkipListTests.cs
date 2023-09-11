@@ -81,7 +81,7 @@ public class SkipListTests
         int count = 0;
         SkipList.Iterator iter = _skipList.GetIterator();
 
-        for (iter.MoveToMin(); iter.Valid(); iter.MoveNext())
+        for (iter.MoveToFirst(); iter.Valid(); iter.MoveNext())
         {
             count++;
         }
