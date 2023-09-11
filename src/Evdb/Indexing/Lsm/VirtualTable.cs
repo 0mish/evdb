@@ -56,6 +56,11 @@ internal sealed class VirtualTable : File, IDisposable
         return _kvs.TryGet(ikey, out value);
     }
 
+    public Iterator GetIterator()
+    {
+        return new Iterator(_kvs.GetIterator());
+    }
+
     // TODO: Consider empty tables.
     public FileMetadata Flush(string path)
     {
@@ -102,5 +107,30 @@ internal sealed class VirtualTable : File, IDisposable
 
         _wal.Dispose();
         _disposed = true;
+    }
+
+    public struct Iterator
+    {
+        private SkipList.Iterator _iter;
+
+        public Iterator(SkipList.Iterator iter)
+        {
+            _iter = iter;
+        }
+
+        public void MoveToMin()
+        {
+            _iter.MoveToMin();
+        }
+
+        public void MoveTo(ReadOnlySpan<byte> key)
+        {
+            _iter.MoveTo(key);
+        }
+
+        public bool TryMoveNext(out ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
+        {
+            return _iter.TryMoveNext(out key, out value);
+        }
     }
 }
