@@ -31,9 +31,7 @@ internal sealed class VirtualTable : File, IDisposable
 
     public bool TrySet(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value)
     {
-        long newSize = Size + key.Length + value.Length;
-
-        if (newSize > Capacity)
+        if (Size > Capacity)
         {
             return false;
         }
@@ -41,7 +39,7 @@ internal sealed class VirtualTable : File, IDisposable
         _wal.LogSet(key, value);
         _kvs.Set(key, value);
 
-        Size = newSize;
+        Size += key.Length + value.Length;
 
         return true;
     }
