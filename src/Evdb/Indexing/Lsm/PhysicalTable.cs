@@ -112,6 +112,7 @@ internal sealed class PhysicalTable : File, IDisposable
 
         public bool Valid()
         {
+            // FIXME: This does not work at the end of the file.
             return _reader.BaseStream.Position < _reader.BaseStream.Length;
         }
 
