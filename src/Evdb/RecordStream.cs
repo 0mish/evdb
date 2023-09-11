@@ -20,7 +20,7 @@ public sealed class RecordStream
         _key = Encoding.UTF8.GetBytes(name);
     }
 
-    public void Append(string type, ReadOnlySpan<byte> json)
+    public void Append(Record record)
     {
         lock (_sync)
         {
@@ -31,22 +31,30 @@ public sealed class RecordStream
                 _hasCount = true;
             }
 
-            ReadOnlySpan<byte> key = RecordKey.Encode(_key, _count++);
+            ReadOnlySpan<byte> key = RecordKey.Encode(_key, _count);
+            ReadOnlySpan<byte> value = Record.Encode(record.Type, record.Data);
 
-            _index.TrySet(key, json);
+            if (!_index.TrySet(key, value))
+            {
+                throw new Exception("Failed to append Record.");
+            }
+
+            _count++;
         }
     }
 
-    public void Append<T>(string type, T value)
+    public void Append<T>(T value)
     {
         using MemoryStream stream = new();
 
         JsonSerializer.Serialize(stream, value);
 
         ReadOnlySpan<byte> buffer = stream.GetBuffer();
-        ReadOnlySpan<byte> json = buffer[..(int)stream.Length];
+        ReadOnlySpan<byte> data = buffer[..(int)stream.Length];
+        ReadOnlySpan<byte> type = Encoding.UTF8.GetBytes(typeof(T).FullName!);
+        Record record = new(type, data);
 
-        Append(type, json);
+        Append(record);
     }
 
     public Iterator GetIterator()

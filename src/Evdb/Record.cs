@@ -4,6 +4,7 @@ namespace Evdb;
 
 public readonly ref struct Record
 {
+    public Guid Guid { get; } = default;
     public ReadOnlySpan<byte> Type { get; }
     public ReadOnlySpan<byte> Data { get; }
 
@@ -13,8 +14,13 @@ public readonly ref struct Record
         Data = data;
     }
 
-    public T? Decode<T>()
+    public T? Deserialize<T>()
     {
         return JsonSerializer.Deserialize<T>(Data);
+    }
+
+    public static byte[] Encode(ReadOnlySpan<byte> type, ReadOnlySpan<byte> value)
+    {
+        return value.ToArray();
     }
 }

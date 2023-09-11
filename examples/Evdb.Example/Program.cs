@@ -3,14 +3,14 @@
 using Store store = new("db");
 
 RecordStream stream = store.Get("object-1");
-stream.Append("info", new InfoEvent("Test"));
-stream.Append("number", new NumberEvent(1));
+stream.Append(new InfoEvent("Test"));
+stream.Append(new NumberEvent(1));
 
 RecordStream.Iterator iter = stream.GetIterator();
 
-Console.WriteLine(iter.Record.Decode<InfoEvent>());
+Console.WriteLine(iter.Record.Deserialize<InfoEvent>());
 iter.MoveNext();
-Console.WriteLine(iter.Record.Decode<NumberEvent>());
+Console.WriteLine(iter.Record.Deserialize<NumberEvent>());
 iter.MoveNext();
 
 record class InfoEvent(string Message);
