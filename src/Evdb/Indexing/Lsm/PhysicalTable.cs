@@ -113,8 +113,7 @@ internal sealed class PhysicalTable : File, IDisposable
 
         public bool Valid()
         {
-            // FIXME: This does not work at the end of the file.
-            return _reader.BaseStream.Position < _reader.BaseStream.Length;
+            return _key != null && _value != null;
         }
 
         public void MoveToFirst()
@@ -136,8 +135,16 @@ internal sealed class PhysicalTable : File, IDisposable
 
         public void MoveNext()
         {
-            _key = _reader.ReadByteArray();
-            _value = _reader.ReadByteArray();
+            if (_reader.BaseStream.Position < _reader.BaseStream.Length)
+            {
+                _key = _reader.ReadByteArray();
+                _value = _reader.ReadByteArray();
+            }
+            else
+            {
+                _key = null;
+                _value = null;
+            }    
+            }
         }
-    }
 }
