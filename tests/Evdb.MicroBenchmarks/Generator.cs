@@ -1,8 +1,6 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿namespace Evdb.MicroBenchmarks;
 
-namespace Evdb.MicroBenchmarks;
-
-internal static class Generator
+public static class Generator
 {
     public static List<KeyValuePair<byte[], byte[]>> KeyValues(int count, int keySize = 12, int valueSize = 64)
     {
@@ -21,25 +19,5 @@ internal static class Generator
         }
 
         return kvs.ToList();
-    }
-
-    private class ByteArrayComparer : IEqualityComparer<byte[]>
-    {
-        public bool Equals(byte[]? x, byte[]? y)
-        {
-            return x.AsSpan().SequenceEqual(y);
-        }
-
-        public int GetHashCode([DisallowNull] byte[] obj)
-        {
-            int result = 0;
-
-            foreach (byte b in obj)
-            {
-                HashCode.Combine(result, b);
-            }
-
-            return result;
-        }
     }
 }

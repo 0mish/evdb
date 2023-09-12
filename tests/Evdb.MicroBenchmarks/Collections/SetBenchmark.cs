@@ -26,4 +26,15 @@ public class SetBenchmark
             sl.Set(kv.Key, kv.Value);
         }
     }
+
+    [Benchmark]
+    public void SortedDictionary()
+    {
+        SortedDictionary<byte[], byte[]> sd = new(ByteArrayComparer.Default);
+
+        foreach (var kv in _kvs)
+        {
+            sd.Add(kv.Key, kv.Value);
+        }
+    }
 }

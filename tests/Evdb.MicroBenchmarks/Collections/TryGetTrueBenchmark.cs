@@ -6,6 +6,7 @@ namespace Evdb.MicroBenchmarks.Collections;
 public class TryGetTrueBenchmark
 {
     private SkipList _sl = default!;
+    private SortedDictionary<byte[], byte[]> _sd = default!;
     private List<KeyValuePair<byte[], byte[]>> _kvs = default!;
 
     [Params(1024)]
@@ -14,12 +15,15 @@ public class TryGetTrueBenchmark
     [GlobalSetup]
     public void GlobalSetup()
     {
-        _sl = new SkipList();
         _kvs = Generator.KeyValues(N);
+
+        _sl = new SkipList();
+        _sd = new SortedDictionary<byte[], byte[]>(ByteArrayComparer.Default);
 
         foreach (KeyValuePair<byte[], byte[]> kv in _kvs)
         {
             _sl.Set(kv.Key, kv.Value);
+            _sd.Add(kv.Key, kv.Value);
         }
     }
 
@@ -31,6 +35,19 @@ public class TryGetTrueBenchmark
         foreach (var kv in _kvs)
         {
             result &= _sl.TryGet(kv.Key, out _);
+        }
+
+        return result;
+    }
+
+    [Benchmark]
+    public bool SortedDictionary()
+    {
+        bool result = true;
+
+        foreach (var kv in _kvs)
+        {
+            result &= _sd.TryGetValue(kv.Key, out _);
         }
 
         return result;
