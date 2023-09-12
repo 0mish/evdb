@@ -1,4 +1,7 @@
 .vs/
 bin/
 obj/
+BenchmarkDotNet.Artifacts/
+
 *.csproj.user
+
