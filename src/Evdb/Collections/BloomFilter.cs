@@ -1,4 +1,4 @@
-﻿namespace Evdb.Indexing.Lsm;
+﻿namespace Evdb.Collections;
 
 internal sealed class BloomFilter
 {

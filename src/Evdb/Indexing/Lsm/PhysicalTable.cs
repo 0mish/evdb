@@ -1,4 +1,5 @@
-﻿using Evdb.IO;
+﻿using Evdb.Collections;
+using Evdb.IO;
 using System.Diagnostics;
 
 namespace Evdb.Indexing.Lsm;
