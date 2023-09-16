@@ -1,12 +1,19 @@
 ﻿using Evdb.Indexing.Lsm;
-using Evdb.IO;
 using System.Diagnostics;
+
+LsmIndexOptions options = new()
+{
+    Path = "db",
+
+    // Purposefully use a small virtual table size to force compaction and disk reads.
+    VirtualTableSize = 1024 * 16
+};
 
 Func<BenchmarkResult>[] benchmarks = new Func<BenchmarkResult>[]
 {
     () => SingleWriterSingleReader(entries: 10000),
     () => MultipleWritersSingleReader(entries: 10000),
-    // () => SingleWriterMultipleReader(entries: 10000),
+    () => SingleWriterMultipleReader(entries: 10000),
 };
 
 string header = $"{"Benchmark Name",50} | {"Bytes Written/s",18:f2} | {"Bytes Read/s",18:f2} | {"Misses",10}";
@@ -35,13 +42,9 @@ foreach (Func<BenchmarkResult> benchmark in benchmarks)
     Console.WriteLine($"{result.Name,50} | {bytesWrittenPerSecond,13:f2} mb/s | {bytesReadPerSecond,13:f2} mb/s | {result.Misses,10}");
 }
 
-static BenchmarkResult MultipleWritersSingleReader(int entries)
+BenchmarkResult MultipleWritersSingleReader(int entries)
 {
     List<KeyValuePair<byte[], byte[]>> kvs = GenerateKeyValues(entries, keySize: 12, valueSize: 64);
-    LsmIndexOptions options = new()
-    {
-        Path = "db"
-    };
 
     using LsmIndex db = new(options);
 
@@ -71,13 +74,9 @@ static BenchmarkResult MultipleWritersSingleReader(int entries)
     return new BenchmarkResult("Multiple Writers then Single Reader", readWrite, readWrite, miss, wts, rts);
 }
 
-static BenchmarkResult SingleWriterSingleReader(int entries)
+BenchmarkResult SingleWriterSingleReader(int entries)
 {
     List<KeyValuePair<byte[], byte[]>> kvs = GenerateKeyValues(entries, keySize: 12, valueSize: 64);
-    LsmIndexOptions options = new()
-    {
-        Path = "db"
-    };
 
     using LsmIndex db = new(options);
 
@@ -106,14 +105,9 @@ static BenchmarkResult SingleWriterSingleReader(int entries)
     return new BenchmarkResult("Single Writer then Single Reader", readWrite, readWrite, miss, wts, rts);
 }
 
-static BenchmarkResult SingleWriterMultipleReader(int entries)
+BenchmarkResult SingleWriterMultipleReader(int entries)
 {
     List<KeyValuePair<byte[], byte[]>> kvs = GenerateKeyValues(entries, keySize: 12, valueSize: 64);
-    LsmIndexOptions options = new()
-    {
-        Path = "db",
-        FileSystem = new FileSystem()
-    };
 
     using LsmIndex db = new(options);
 

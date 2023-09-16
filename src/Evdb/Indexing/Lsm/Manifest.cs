@@ -1,5 +1,6 @@
 ﻿using Evdb.IO;
 using Evdb.Threading;
+using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Text;
 
@@ -19,7 +20,7 @@ internal sealed class Manifest : IDisposable
     private readonly IFileSystem _fs;
 
     // TODO: This should be an LRU cache or something like that to dispose opened file handles automatically.
-    private readonly Dictionary<FileId, File> _cache;
+    private readonly ConcurrentDictionary<FileId, File> _cache;
 
     public string Path { get; }
     public ulong VersionNumber => _versionNumber;
@@ -28,10 +29,6 @@ internal sealed class Manifest : IDisposable
 
     public Manifest(IFileSystem fs, string path, object sync)
     {
-        ArgumentNullException.ThrowIfNull(fs, nameof(fs));
-        ArgumentNullException.ThrowIfNull(path, nameof(path));
-        ArgumentNullException.ThrowIfNull(sync, nameof(sync));
-
         _sync = sync;
         _writerSync = new object();
 
@@ -45,10 +42,10 @@ internal sealed class Manifest : IDisposable
 
         Recover();
 
-        _file = fs.OpenFile(id.GetPath(path), FileMode.OpenOrCreate, FileAccess.Write);
+        _file = fs.OpenFile(id.GetPath(path), FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
         _writer = new BinaryWriter(_file, Encoding.UTF8, leaveOpen: true);
 
-        _cache = new Dictionary<FileId, File>();
+        _cache = new ConcurrentDictionary<FileId, File>();
     }
 
     public ulong NextVersionNumber()
@@ -72,7 +69,7 @@ internal sealed class Manifest : IDisposable
         {
             file = new PhysicalTable(_fs, new FileMetadata(Path, fileId.Type, fileId.Number));
 
-            _cache.Add(fileId, file);
+            _cache.TryAdd(fileId, file);
         }
 
         return file;

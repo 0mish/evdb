@@ -1,6 +1,7 @@
 ﻿using Evdb.Collections;
 using Evdb.IO;
 using System.Diagnostics;
+using System.Text;
 
 namespace Evdb.Indexing.Lsm;
 
@@ -10,32 +11,23 @@ internal sealed class PhysicalTable : File, IDisposable
     private string DebuggerDisplay => $"PhysicalTable {Metadata.Path}";
 
     private bool _disposed;
-
+    private readonly IFileSystem _fs;
     private readonly BloomFilter _filter;
     private readonly byte[] _firstKey;
     private readonly byte[] _lastKey;
-    private readonly long _dataPosition;
-
-    private readonly Stream _file;
-    private readonly BinaryReader _reader;
+    private readonly long _position;
 
     public PhysicalTable(IFileSystem fs, FileMetadata metadata) : base(metadata)
     {
-        ArgumentNullException.ThrowIfNull(fs, nameof(fs));
+        _fs = fs;
 
-        _file = fs.OpenFile(metadata.Path, FileMode.Open, FileAccess.Read);
-        _file.Seek(0, SeekOrigin.Begin);
+        using Stream file = fs.OpenFile(metadata.Path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        using BinaryReader reader = new(file);
 
-        _reader = new BinaryReader(_file);
-
-        int filterSize = _reader.Read7BitEncodedInt();
-        byte[] filterBuffer = _reader.ReadBytes(filterSize);
-
-        _filter = new BloomFilter(filterBuffer);
-        _firstKey = _reader.ReadByteArray();
-        _lastKey = _reader.ReadByteArray();
-
-        _dataPosition = _file.Position;
+        _filter = new BloomFilter(reader.ReadByteArray());
+        _firstKey = reader.ReadByteArray();
+        _lastKey = reader.ReadByteArray();
+        _position = file.Position;
     }
 
     public bool TryGet(ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
@@ -57,7 +49,7 @@ internal sealed class PhysicalTable : File, IDisposable
         }
 
         // Otherwise we perform the look up in the file.
-        Iterator iter = GetIterator();
+        using Iterator iter = GetIterator();
 
         for (iter.MoveToFirst(); iter.Valid(); iter.MoveNext())
         {
@@ -76,7 +68,7 @@ internal sealed class PhysicalTable : File, IDisposable
 
     public Iterator GetIterator()
     {
-        return new Iterator(_reader, _dataPosition);
+        return new Iterator(_fs, Metadata, _position);
     }
 
     public void Dispose()
@@ -86,39 +78,41 @@ internal sealed class PhysicalTable : File, IDisposable
             return;
         }
 
-        _reader.Dispose();
-        _file.Dispose();
-
         _disposed = true;
     }
 
     public sealed class Iterator : IIterator
     {
+        private bool _disposed;
+
         private byte[]? _key;
         private byte[]? _value;
 
         private readonly BinaryReader _reader;
-        private readonly long _dataPosition;
+        private readonly long _position;
 
         public ReadOnlySpan<byte> Key => _key;
         public ReadOnlySpan<byte> Value => _value;
 
-        public Iterator(BinaryReader reader, long position)
+        public Iterator(IFileSystem fs, FileMetadata metadata, long position)
         {
-            _reader = reader;
-            _dataPosition = position;
+            // TODO: optimize - Instead of creating a new file handle each, we can pool them instead.
+            Stream file = fs.OpenFile(metadata.Path, FileMode.Open, FileAccess.Read, FileShare.Read);
+
+            _reader = new BinaryReader(file, Encoding.UTF8, leaveOpen: false);
+            _position = position;
 
             MoveToFirst();
         }
 
         public bool Valid()
         {
-            return _key != null && _value != null;
+            return !_disposed && _key != null && _value != null;
         }
 
         public void MoveToFirst()
         {
-            _reader.BaseStream.Seek(_dataPosition, SeekOrigin.Begin);
+            _reader.BaseStream.Seek(_position, SeekOrigin.Begin);
 
             MoveNext();
         }
@@ -149,7 +143,13 @@ internal sealed class PhysicalTable : File, IDisposable
 
         public void Dispose()
         {
+            if (_disposed)
+            {
+                return;
+            }
 
+            _reader.Dispose();
+            _disposed = true;
         }
     }
 }

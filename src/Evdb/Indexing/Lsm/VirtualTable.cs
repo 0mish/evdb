@@ -59,7 +59,7 @@ internal sealed class VirtualTable : File, IDisposable
     {
         FileMetadata metadata = new(path, FileType.Table, Metadata.Id.Number);
 
-        using (Stream file = _fs.OpenFile(metadata.Path, FileMode.Create, FileAccess.Write))
+        using (Stream file = _fs.OpenFile(metadata.Path, FileMode.Create, FileAccess.Write, FileShare.None))
         using (BinaryWriter writer = new(file, Encoding.UTF8, leaveOpen: true))
         {
             BloomFilter filter = new(size: 4096);

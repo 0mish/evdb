@@ -16,7 +16,7 @@ internal sealed class LogReader
         ArgumentNullException.ThrowIfNull(fs, nameof(fs));
         ArgumentNullException.ThrowIfNull(path, nameof(path));
 
-        _file = fs.OpenFile(path, FileMode.Open, FileAccess.Read);
+        _file = fs.OpenFile(path, FileMode.Open, FileAccess.Read, FileShare.None);
         _reader = new BinaryReader(_file, Encoding.UTF8, leaveOpen: true);
     }
 

@@ -14,7 +14,7 @@ internal sealed class WriteAheadLog : IDisposable
     {
         ArgumentNullException.ThrowIfNull(fs, nameof(fs));
 
-        _file = fs.OpenFile(path, FileMode.Create, FileAccess.Write);
+        _file = fs.OpenFile(path, FileMode.Create, FileAccess.Write, FileShare.None);
         _writer = new BinaryWriter(_file, Encoding.UTF8, leaveOpen: true);
     }
 
