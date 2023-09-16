@@ -98,7 +98,7 @@ internal sealed class VirtualTable : File, IDisposable
         _disposed = true;
     }
 
-    public class Iterator : IIterator
+    public sealed class Iterator : IIterator
     {
         private SkipList.Iterator _iter;
 
@@ -128,6 +128,11 @@ internal sealed class VirtualTable : File, IDisposable
         public void MoveNext()
         {
             _iter.MoveNext();
+        }
+
+        public void Dispose()
+        {
+
         }
     }
 }

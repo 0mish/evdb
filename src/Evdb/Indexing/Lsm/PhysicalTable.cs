@@ -92,7 +92,7 @@ internal sealed class PhysicalTable : File, IDisposable
         _disposed = true;
     }
 
-    public class Iterator : IIterator
+    public sealed class Iterator : IIterator
     {
         private byte[]? _key;
         private byte[]? _value;
@@ -144,7 +144,12 @@ internal sealed class PhysicalTable : File, IDisposable
             {
                 _key = null;
                 _value = null;
-            }    
             }
         }
+
+        public void Dispose()
+        {
+
+        }
+    }
 }

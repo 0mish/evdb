@@ -2,7 +2,7 @@
 
 namespace Evdb.Indexing.Lsm;
 
-internal interface IIterator
+internal interface IIterator : IDisposable
 {
     ReadOnlySpan<byte> Key { get; }
     ReadOnlySpan<byte> Value { get; }
@@ -14,10 +14,11 @@ internal interface IIterator
     void MoveNext();
 }
 
-internal class MergeIterator : IIterator
+internal sealed class MergeIterator : IIterator
 {
+    private bool _disposed;
     private IIterator _curr;
-    private readonly IIterator[] _all;
+    private readonly IIterator[] _iters;
 
     public ReadOnlySpan<byte> Key => _curr.Key;
     public ReadOnlySpan<byte> Value => _curr.Value;
@@ -26,7 +27,7 @@ internal class MergeIterator : IIterator
     {
         Debug.Assert(iters.Length > 0);
 
-        _all = iters;
+        _iters = iters;
         _curr = GetMinIterator();
     }
 
@@ -37,7 +38,7 @@ internal class MergeIterator : IIterator
 
     public void MoveToFirst()
     {
-        foreach (IIterator iter in _all)
+        foreach (IIterator iter in _iters)
         {
             iter.MoveToFirst();
         }
@@ -47,7 +48,7 @@ internal class MergeIterator : IIterator
 
     public void MoveTo(ReadOnlySpan<byte> key)
     {
-        foreach (IIterator iter in _all)
+        foreach (IIterator iter in _iters)
         {
             iter.MoveTo(key);
         }
@@ -63,16 +64,31 @@ internal class MergeIterator : IIterator
 
     private IIterator GetMinIterator()
     {
-        IIterator minIter = _all[0];
+        IIterator minIter = _iters[0];
 
-        for (int i = 1; i < _all.Length; i++)
+        for (int i = 1; i < _iters.Length; i++)
         {
-            if (_all[i].Key.SequenceCompareTo(minIter.Key) < 0)
+            if (_iters[i].Key.SequenceCompareTo(minIter.Key) < 0)
             {
-                minIter = _all[i];
+                minIter = _iters[i];
             }
         }
 
         return minIter;
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        foreach (IIterator iter in _iters)
+        {
+            iter.Dispose();
+        }
+
+        _disposed = true;
     }
 }

@@ -172,8 +172,9 @@ internal sealed class LsmIndex : IDisposable
         _disposed = true;
     }
 
-    public class Iterator : IIterator
+    public sealed class Iterator : IIterator
     {
+        private bool _disposed;
         private readonly MergeIterator _iter;
 
         public ReadOnlySpan<byte> Key => _iter.Key;
@@ -224,6 +225,17 @@ internal sealed class LsmIndex : IDisposable
         public void MoveNext()
         {
             _iter.MoveNext();
+        }
+
+        public void Dispose()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _iter.Dispose();
+            _disposed = true;
         }
     }
 }
