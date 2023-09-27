@@ -89,34 +89,39 @@ internal sealed class LsmIndex : IDisposable
 
         // Make a copy of the _l0n to avoid holding locks for long.
         VirtualTable[] l0n;
-        ManifestState state;
+        ManifestState? state = null;
 
-        lock (_sync)
+        try
         {
-            l0n = _l0n.ToArray();
-            state = _manifest.Current;
-            state.Reference();
-        }
-
-        foreach (VirtualTable table in l0n)
-        {
-            if (table.TryGet(ikey, out value))
+            lock (_sync)
             {
-                return true;
+                l0n = _l0n.ToArray();
+                state = _manifest.Current;
+                state.Reference();
+            }
+
+            foreach (VirtualTable table in l0n)
+            {
+                if (table.TryGet(ikey, out value))
+                {
+                    return true;
+                }
+            }
+
+            foreach (FileId fileId in state.Files)
+            {
+                if (_manifest.Resolve(fileId) is PhysicalTable table && table.TryGet(ikey, out value))
+                {
+                    return true;
+                }
             }
         }
-
-        foreach (FileId fileId in state.Files)
+        finally
         {
-            if (_manifest.Resolve(fileId) is PhysicalTable table && table.TryGet(ikey, out value))
+            lock (_sync)
             {
-                return true;
+                state?.Unreference();
             }
-        }
-
-        lock (_sync)
-        {
-            state.Unreference();
         }
 
         return false;
