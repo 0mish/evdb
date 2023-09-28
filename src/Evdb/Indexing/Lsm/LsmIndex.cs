@@ -129,6 +129,7 @@ internal sealed class LsmIndex : IDisposable
 
     public Iterator GetIterator()
     {
+        // FIXME: Keep track of opened iterators so we do not accidentally close in use resources.
         return new Iterator(this);
     }
 
@@ -208,6 +209,7 @@ internal sealed class LsmIndex : IDisposable
 
                 iters.Add(index._l0.GetIterator());
 
+                // FIXME: This iterator should be wrapped in an iterator which selects the latest version of the key.
                 _iter = new MergeIterator(iters.ToArray());
             }
         }
