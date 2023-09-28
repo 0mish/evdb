@@ -51,11 +51,11 @@ internal sealed class LsmIndex : IDisposable
             return false;
         }
 
-        ulong version = _manifest.VersionNumber;
-        ReadOnlySpan<byte> ikey = IndexKey.Encode(key, version);
-
         lock (_sync)
         {
+            ulong version = _manifest.VersionNumber;
+            ReadOnlySpan<byte> ikey = IndexKey.Encode(key, version);
+
             while (!_l0.TrySet(ikey, value))
             {
                 VirtualTable oldL0 = _l0;
@@ -65,6 +65,8 @@ internal sealed class LsmIndex : IDisposable
 
                 _compactionQueue.Enqueue(new CompactionJob(oldL0, CompactTable));
             }
+
+            // FIXME: Advance VersionNumber after key-value inserted.
         }
 
         return true;
