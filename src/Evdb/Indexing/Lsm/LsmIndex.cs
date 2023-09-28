@@ -40,8 +40,8 @@ internal sealed class LsmIndex : IDisposable
         _compactionQueue = new CompactionQueue();
         _compactionThread = new CompactionThread(_compactionQueue);
 
-        _l0 = new VirtualTable(new PhysicalLog(_fs, new FileMetadata(_manifest.Path, FileType.Log, _manifest.NextFileNumber())), options.VirtualTableSize);
         _l0n = new List<VirtualTable>();
+        _l0 = new VirtualTable(NewLog(), options.VirtualTableSize);
     }
 
     public bool TrySet(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value)
@@ -61,7 +61,7 @@ internal sealed class LsmIndex : IDisposable
                 VirtualTable oldL0 = _l0;
 
                 _l0n.Add(_l0);
-                _l0 = new VirtualTable(new PhysicalLog(_fs, new FileMetadata(_manifest.Path, FileType.Log, _manifest.NextFileNumber())), _l0.Capacity);
+                _l0 = new VirtualTable(NewLog(), oldL0.Capacity);
 
                 _compactionQueue.Enqueue(new CompactionJob(oldL0, CompactTable));
             }
@@ -133,6 +133,24 @@ internal sealed class LsmIndex : IDisposable
     {
         // FIXME: Keep track of opened iterators so we do not accidentally close in use resources.
         return new Iterator(this);
+    }
+
+    private PhysicalLog NewLog()
+    {
+        FileMetadata metadata = new(_manifest.Path, FileType.Log, _manifest.NextFileNumber());
+        PhysicalLog log = new(_fs, metadata);
+
+        // FIXME: This unblocks writers and allows more than one writer in the write loop.
+#if false
+        ManifestEdit edit = new()
+        {
+            FilesRegistered = new[] { metadata.Id }
+        };
+
+        _manifest.Commit(edit);
+#endif
+
+        return log;
     }
 
     private void CompactTable(VirtualTable vtable)

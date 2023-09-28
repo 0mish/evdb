@@ -8,21 +8,22 @@ namespace Evdb.Indexing.Lsm;
 [DebuggerDisplay("{DebuggerDisplay,nq}")]
 internal sealed class VirtualTable : IDisposable
 {
-    private string DebuggerDisplay => $"VirtualTable {_wal.Metadata.Path}";
+    private string DebuggerDisplay => $"VirtualTable {Log.Metadata.Path}";
 
     private bool _disposed;
     private readonly SkipList _kvs;
-    private readonly PhysicalLog _wal;
 
     public long Size { get; private set; }
     public long Capacity { get; }
+
+    internal PhysicalLog Log { get; }
 
     public VirtualTable(PhysicalLog log, long capacity)
     {
         Capacity = capacity;
 
         _kvs = new SkipList();
-        _wal = log;
+        Log = log;
     }
 
     public bool TrySet(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value)
@@ -32,7 +33,7 @@ internal sealed class VirtualTable : IDisposable
             return false;
         }
 
-        _wal.LogSet(key, value);
+        Log.LogSet(key, value);
         _kvs.Set(key, value);
 
         Size += key.Length + value.Length;
@@ -53,7 +54,7 @@ internal sealed class VirtualTable : IDisposable
     // TODO: Consider empty tables.
     public FileMetadata Flush(IFileSystem fs, string path)
     {
-        FileMetadata metadata = new(path, FileType.Table, _wal.Metadata.Id.Number);
+        FileMetadata metadata = new(path, FileType.Table, Log.Metadata.Id.Number);
 
         using (Stream file = fs.OpenFile(metadata.Path, FileMode.Create, FileAccess.Write, FileShare.None))
         using (BinaryWriter writer = new(file, Encoding.UTF8, leaveOpen: true))
@@ -90,7 +91,7 @@ internal sealed class VirtualTable : IDisposable
             return;
         }
 
-        _wal.Dispose();
+        Log.Dispose();
         _disposed = true;
     }
 

@@ -2,6 +2,7 @@
 using Evdb.Threading;
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Text;
 
 namespace Evdb.Indexing.Lsm;
@@ -60,14 +61,18 @@ internal sealed class Manifest : IDisposable
 
     public File? Resolve(FileId fileId)
     {
-        if (fileId.Type != FileType.Table)
+        if (fileId.Type is not FileType.Table or FileType.Log)
         {
             return null;
         }
 
         if (!_cache.TryGetValue(fileId, out File? file))
         {
-            file = new PhysicalTable(_fs, new FileMetadata(Path, fileId.Type, fileId.Number));
+            FileMetadata metadata = new(Path, fileId.Type, fileId.Number);
+
+            file = fileId.Type is FileType.Log
+                ? new PhysicalLog(_fs, metadata)
+                : new PhysicalTable(_fs, metadata);
 
             _cache.TryAdd(fileId, file);
         }
