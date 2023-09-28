@@ -6,8 +6,6 @@ internal abstract class File
 
     protected File(FileMetadata metadata)
     {
-        ArgumentNullException.ThrowIfNull(metadata, nameof(metadata));
-
         Metadata = metadata;
     }
 }

@@ -40,7 +40,7 @@ internal sealed class LsmIndex : IDisposable
         _compactionQueue = new CompactionQueue();
         _compactionThread = new CompactionThread(_compactionQueue);
 
-        _l0 = new VirtualTable(_fs, new FileMetadata(_manifest.Path, FileType.Log, _manifest.NextFileNumber()), options.VirtualTableSize);
+        _l0 = new VirtualTable(new PhysicalLog(_fs, new FileMetadata(_manifest.Path, FileType.Log, _manifest.NextFileNumber())), options.VirtualTableSize);
         _l0n = new List<VirtualTable>();
     }
 
@@ -61,7 +61,7 @@ internal sealed class LsmIndex : IDisposable
                 VirtualTable oldL0 = _l0;
 
                 _l0n.Add(_l0);
-                _l0 = new VirtualTable(_fs, new FileMetadata(_manifest.Path, FileType.Log, _manifest.NextFileNumber()), _l0.Capacity);
+                _l0 = new VirtualTable(new PhysicalLog(_fs, new FileMetadata(_manifest.Path, FileType.Log, _manifest.NextFileNumber())), _l0.Capacity);
 
                 _compactionQueue.Enqueue(new CompactionJob(oldL0, CompactTable));
             }
@@ -136,7 +136,7 @@ internal sealed class LsmIndex : IDisposable
     private void CompactTable(VirtualTable vtable)
     {
         // Flush the virtual table to disk.
-        FileMetadata metadata = vtable.Flush(_manifest.Path);
+        FileMetadata metadata = vtable.Flush(_fs, _manifest.Path);
 
         // Commit the newly flushed PhysicalTable to the manifest so readers can see it.
         ManifestEdit edit = new()

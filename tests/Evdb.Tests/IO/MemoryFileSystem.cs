@@ -36,7 +36,7 @@ public class MemoryFileSystem : IFileSystem
         return dirNode.Children.Select(f => f.Path).ToArray();
     }
 
-    public Stream OpenFile(string path, FileMode mode, FileAccess access)
+    public Stream OpenFile(string path, FileMode mode, FileAccess access, FileShare share)
     {
         Node? node = GetNode(GetSegments(path), out DirectoryNode? closestNode);
 

@@ -3,18 +3,16 @@ using System.Text;
 
 namespace Evdb.Indexing.Lsm;
 
-internal sealed class WriteAheadLog : IDisposable
+internal sealed class PhysicalLog : File, IDisposable
 {
     private bool _disposed;
 
     private readonly Stream _file;
     private readonly BinaryWriter _writer;
 
-    public WriteAheadLog(IFileSystem fs, string path)
+    public PhysicalLog(IFileSystem fs, FileMetadata metadata) : base(metadata)
     {
-        ArgumentNullException.ThrowIfNull(fs, nameof(fs));
-
-        _file = fs.OpenFile(path, FileMode.Create, FileAccess.Write, FileShare.None);
+        _file = fs.OpenFile(metadata.Path, FileMode.Create, FileAccess.Write, FileShare.None);
         _writer = new BinaryWriter(_file, Encoding.UTF8, leaveOpen: true);
     }
 

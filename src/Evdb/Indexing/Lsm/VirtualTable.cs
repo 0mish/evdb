@@ -6,27 +6,23 @@ using System.Text;
 namespace Evdb.Indexing.Lsm;
 
 [DebuggerDisplay("{DebuggerDisplay,nq}")]
-internal sealed class VirtualTable : File, IDisposable
+internal sealed class VirtualTable : IDisposable
 {
-    private string DebuggerDisplay => $"VirtualTable {Metadata.Path}";
+    private string DebuggerDisplay => $"VirtualTable {_wal.Metadata.Path}";
 
     private bool _disposed;
     private readonly SkipList _kvs;
-    private readonly WriteAheadLog _wal;
-    private readonly IFileSystem _fs;
+    private readonly PhysicalLog _wal;
 
     public long Size { get; private set; }
     public long Capacity { get; }
 
-    public VirtualTable(IFileSystem fs, FileMetadata metadata, long capacity) : base(metadata)
+    public VirtualTable(PhysicalLog log, long capacity)
     {
-        ArgumentNullException.ThrowIfNull(fs, nameof(fs));
-
         Capacity = capacity;
 
         _kvs = new SkipList();
-        _wal = new WriteAheadLog(fs, metadata.Path);
-        _fs = fs;
+        _wal = log;
     }
 
     public bool TrySet(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value)
@@ -55,11 +51,11 @@ internal sealed class VirtualTable : File, IDisposable
     }
 
     // TODO: Consider empty tables.
-    public FileMetadata Flush(string path)
+    public FileMetadata Flush(IFileSystem fs, string path)
     {
-        FileMetadata metadata = new(path, FileType.Table, Metadata.Id.Number);
+        FileMetadata metadata = new(path, FileType.Table, _wal.Metadata.Id.Number);
 
-        using (Stream file = _fs.OpenFile(metadata.Path, FileMode.Create, FileAccess.Write, FileShare.None))
+        using (Stream file = fs.OpenFile(metadata.Path, FileMode.Create, FileAccess.Write, FileShare.None))
         using (BinaryWriter writer = new(file, Encoding.UTF8, leaveOpen: true))
         {
             BloomFilter filter = new(size: 4096);
