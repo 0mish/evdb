@@ -1,7 +1,7 @@
 ﻿using Evdb.Indexing;
 using Evdb.IO;
 
-namespace Evdb.Tests.Indexing.Common;
+namespace Evdb.Tests.Indexing;
 
 public class LogWriterTests
 {
