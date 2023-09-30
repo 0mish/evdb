@@ -1,10 +1,14 @@
 ﻿using Evdb.IO;
+using System.Diagnostics;
 using System.Text;
 
 namespace Evdb.Indexing.Lsm;
 
+[DebuggerDisplay("{DebuggerDisplay,nq}")]
 internal sealed class PhysicalLog : File, IDisposable
 {
+    private string DebuggerDisplay => $"PhysicalLog {Metadata.Path}";
+
     private bool _disposed;
 
     private readonly Stream _file;

@@ -1,8 +1,4 @@
 ﻿using Evdb.IO;
-using Evdb.Threading;
-using System.Collections.Concurrent;
-using System.Collections.Immutable;
-using System.Diagnostics;
 using System.Text;
 
 namespace Evdb.Indexing.Lsm;
@@ -13,26 +9,19 @@ internal sealed class Manifest : IDisposable
 
     private ulong _versionNumber;
     private ulong _fileNumber;
+    private ManifestState _current = default!;
 
-    private readonly object _sync;
-    private readonly object _writerSync;
     private readonly Stream _file;
     private readonly BinaryWriter _writer;
     private readonly IFileSystem _fs;
 
-    // TODO: This should be an LRU cache or something like that to dispose opened file handles automatically.
-    private readonly ConcurrentDictionary<FileId, File> _cache;
-
     public string Path { get; }
     public ulong VersionNumber => _versionNumber;
     public ulong FileNumber => _fileNumber;
-    public ManifestState Current { get; private set; } = default!;
+    public ManifestState Current => _current;
 
-    public Manifest(IFileSystem fs, string path, object sync)
+    public Manifest(IFileSystem fs, string path)
     {
-        _sync = sync;
-        _writerSync = new object();
-
         _fs = fs;
         _fs.CreateDirectory(path);
 
@@ -45,8 +34,6 @@ internal sealed class Manifest : IDisposable
 
         _file = fs.OpenFile(id.GetPath(path), FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
         _writer = new BinaryWriter(_file, Encoding.UTF8, leaveOpen: true);
-
-        _cache = new ConcurrentDictionary<FileId, File>();
     }
 
     public ulong NextVersionNumber()
@@ -59,116 +46,49 @@ internal sealed class Manifest : IDisposable
         return _fileNumber++;
     }
 
-    public File? Resolve(FileId fileId)
-    {
-        if (fileId.Type is not FileType.Table or FileType.Log)
-        {
-            return null;
-        }
-
-        if (!_cache.TryGetValue(fileId, out File? file))
-        {
-            FileMetadata metadata = new(Path, fileId.Type, fileId.Number);
-
-            file = fileId.Type is FileType.Log
-                ? new PhysicalLog(_fs, metadata)
-                : new PhysicalTable(_fs, metadata);
-
-            _cache.TryAdd(fileId, file);
-        }
-
-        return file;
-    }
-
     public void Commit(ManifestEdit edit)
     {
-        edit.VersionNumber = VersionNumber;
-        edit.FileNumber = FileNumber;
-
-        List<FileId> files = new(Current.Files);
-
-        foreach (FileId fileId in edit.FilesUnregistered ?? Array.Empty<FileId>())
+        if (_disposed)
         {
-            files.Remove(fileId);
+            return;
         }
 
-        foreach (FileId fileId in edit.FilesRegistered ?? Array.Empty<FileId>())
+        ManifestState oldState;
+        ManifestState newState;
+
+        do
         {
-            files.Add(fileId);
-        }
+            oldState = _current;
 
-        // Append the new state to the front of the state list.
-        ManifestState @new = new(edit.VersionNumber.Value, edit.FileNumber.Value, files.ToImmutableArray());
-        Current.Next = @new;
-        @new.Previous = Current;
-        Current = @new;
+            List<VirtualTable> vtables = new(oldState.VirtualTables);
+            List<PhysicalTable> ptables = new(oldState.PhysicalTables);
+            List<PhysicalLog> plogs = new(oldState.PhysicalLogs);
 
-        bool lockReleased = false;
-
-        try
-        {
-            MonitorHelper.Exit(_sync, out lockReleased);
-
-            // Use a different lock to serialize writes to the manifest log so the main lock is freed and other
-            // operations are allowed meanwhile.
-            lock (_writerSync)
+            foreach (object obj in edit.Unregistered ?? Array.Empty<object>())
             {
-                LogEdit(edit);
-            }
-        }
-        finally
-        {
-            if (lockReleased)
-            {
-                Monitor.Enter(_sync);
-            }
-        }
-    }
-
-    public void Clean()
-    {
-        List<FileId> dead = new();
-        List<FileId> alive = Current.Files.ToList();
-        ManifestState? state = Current.Previous;
-
-        while (state != null)
-        {
-            // If state is dead, i.e. has a reference count of zero. Remove the files in it which is not in the alive set.
-            if (state.Unreference())
-            {
-                foreach (FileId fileId in state.Files)
+                switch (obj)
                 {
-                    if (!alive.Contains(fileId))
-                    {
-                        dead.Add(fileId);
-                    }
-                }
-
-                // Remove the state from the state linked-list.
-                ManifestState? next = state.Next;
-                ManifestState? prev = state.Previous;
-
-                if (prev != null)
-                {
-                    prev.Next = next;
-                }
-
-                if (next != null)
-                {
-                    next.Previous = prev;
+                    case VirtualTable vtable: vtables.Remove(vtable); break;
+                    case PhysicalTable ptable: ptables.Remove(ptable); break;
+                    case PhysicalLog plog: plogs.Remove(plog); break;
                 }
             }
 
-            state = state.Previous;
-        }
+            foreach (object obj in edit.Registered ?? Array.Empty<object>())
+            {
+                switch (obj)
+                {
+                    case VirtualTable vtable: vtables.Add(vtable); break;
+                    case PhysicalTable ptable: ptables.Add(ptable); break;
+                    case PhysicalLog plog: plogs.Add(plog); break;
+                }
+            }
 
-        // Remove all files which were marked dead.
-        foreach (FileId fileId in dead)
-        {
-            string path = fileId.GetPath(Path);
-
-            _fs.DeleteFile(path);
+            newState = new ManifestState(vtables.ToArray(), ptables.ToArray(), plogs.ToArray());
         }
+        while (Interlocked.CompareExchange(ref _current, newState, oldState) != oldState);
+
+        // FIXME: Log the edit.
     }
 
     private void Recover()
@@ -186,19 +106,21 @@ internal sealed class Manifest : IDisposable
         // If manifest does not exist, create an empty initial manifest state.
         if (latestManifest == null)
         {
-            Current = new ManifestState(versionNo: 0, fileNo: 0, ImmutableArray<FileId>.Empty);
+            _current = new ManifestState(Array.Empty<VirtualTable>(), Array.Empty<PhysicalTable>(), Array.Empty<PhysicalLog>());
 
             return;
         }
 
         // TODO: Implement recovery.
-        Current = new ManifestState(versionNo: 0, fileNo: 0, ImmutableArray<FileId>.Empty);
+        _current = new ManifestState(Array.Empty<VirtualTable>(), Array.Empty<PhysicalTable>(), Array.Empty<PhysicalLog>());
     }
 
-    private void LogEdit(in ManifestEdit edit)
+#if false
+    private void LogEdit(in ManifestEdit edit, ulong versionNumber, ulong fileNumber)
     {
-        EncodeUInt64(edit.VersionNumber);
-        EncodeUInt64(edit.FileNumber);
+        EncodeUInt64(versionNumber);
+        EncodeUInt64(fileNumber);
+
         EncodeFileIdArray(edit.FilesUnregistered);
         EncodeFileIdArray(edit.FilesRegistered);
 
@@ -227,6 +149,7 @@ internal sealed class Manifest : IDisposable
             }
         }
     }
+#endif
 
     // TODO: Move state to a new squashed manfiest log?
     public void Dispose()
@@ -236,19 +159,25 @@ internal sealed class Manifest : IDisposable
             return;
         }
 
-        foreach (File file in _cache.Values)
-        {
-            if (file is IDisposable disposable)
-            {
-                disposable.Dispose();
-            }
-        }
-
-        // Clean up unused files.
-        Clean();
+        // FIXME: Log latest version?
 
         _writer.Dispose();
         _file.Dispose();
+
+        foreach (PhysicalLog log in Current.PhysicalLogs)
+        {
+            log.Dispose();
+        }
+
+        foreach (PhysicalTable table in Current.PhysicalTables)
+        {
+            table.Dispose();
+        }
+
+        foreach (VirtualTable table in Current.VirtualTables)
+        {
+            table.Dispose();
+        }
 
         _disposed = true;
     }

@@ -5,34 +5,29 @@ namespace Evdb.Indexing.Lsm;
 internal sealed class LsmIndex : IDisposable
 {
     private bool _disposed;
+    private VirtualTable _table;
 
     private readonly object _sync;
-
-    private VirtualTable _l0;
-    private readonly List<VirtualTable> _l0n;
 
     private readonly CompactionQueue _compactionQueue;
     private readonly CompactionThread _compactionThread;
 
     private readonly Manifest _manifest;
-
+    private readonly LsmIndexOptions _options;
     private readonly IFileSystem _fs;
 
     public LsmIndex(LsmIndexOptions options)
     {
-        ArgumentNullException.ThrowIfNull(options, nameof(options));
-        ArgumentNullException.ThrowIfNull(options.Path, nameof(options.Path));
-        ArgumentNullException.ThrowIfNull(options.FileSystem, nameof(options.FileSystem));
+        _options = options;
+        _fs = options.FileSystem;
 
         _sync = new object();
-
-        _fs = options.FileSystem;
 
         // TODO:
         //
         // Re-consider the API design. We are performing IO in the constructor, which may not be expected? Perhaps
         // people would like to control when IO occurs.
-        _manifest = new Manifest(_fs, options.Path, _sync);
+        _manifest = new Manifest(_fs, options.Path);
 
         // TODO:
         //
@@ -40,8 +35,7 @@ internal sealed class LsmIndex : IDisposable
         _compactionQueue = new CompactionQueue();
         _compactionThread = new CompactionThread(_compactionQueue);
 
-        _l0n = new List<VirtualTable>();
-        _l0 = new VirtualTable(NewLog(), options.VirtualTableSize);
+        _table = NewTable();
     }
 
     public bool TrySet(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value)
@@ -56,14 +50,12 @@ internal sealed class LsmIndex : IDisposable
             ulong version = _manifest.VersionNumber;
             ReadOnlySpan<byte> ikey = IndexKey.Encode(key, version);
 
-            while (!_l0.TrySet(ikey, value))
+            while (!_table.TrySet(ikey, value))
             {
-                VirtualTable oldL0 = _l0;
+                VirtualTable oldTable = _table;
 
-                _l0n.Add(_l0);
-                _l0 = new VirtualTable(NewLog(), oldL0.Capacity);
-
-                _compactionQueue.Enqueue(new CompactionJob(oldL0, CompactTable));
+                _table = NewTable();
+                _compactionQueue.Enqueue(new CompactionJob(oldTable, CompactTable));
             }
 
             // FIXME: Advance VersionNumber after key-value inserted.
@@ -84,45 +76,26 @@ internal sealed class LsmIndex : IDisposable
         ulong version = _manifest.VersionNumber;
         ReadOnlySpan<byte> ikey = IndexKey.Encode(key, version);
 
-        if (_l0.TryGet(ikey, out value))
+        if (_table.TryGet(ikey, out value))
         {
             return true;
         }
 
-        // Make a copy of the _l0n to avoid holding locks for long.
-        VirtualTable[] l0n;
-        ManifestState? state = null;
+        ManifestState state = _manifest.Current;
 
-        try
+        foreach (VirtualTable table in state.VirtualTables)
         {
-            lock (_sync)
+            if (table.TryGet(ikey, out value))
             {
-                l0n = _l0n.ToArray();
-                state = _manifest.Current;
-                state.Reference();
-            }
-
-            foreach (VirtualTable table in l0n)
-            {
-                if (table.TryGet(ikey, out value))
-                {
-                    return true;
-                }
-            }
-
-            foreach (FileId fileId in state.Files)
-            {
-                if (_manifest.Resolve(fileId) is PhysicalTable table && table.TryGet(ikey, out value))
-                {
-                    return true;
-                }
+                return true;
             }
         }
-        finally
+
+        foreach (PhysicalTable table in state.PhysicalTables)
         {
-            lock (_sync)
+            if (table.TryGet(ikey, out value))
             {
-                state?.Unreference();
+                return true;
             }
         }
 
@@ -131,46 +104,35 @@ internal sealed class LsmIndex : IDisposable
 
     public Iterator GetIterator()
     {
-        // FIXME: Keep track of opened iterators so we do not accidentally close in use resources.
-        return new Iterator(this);
+        return new Iterator(_manifest.Current);
     }
 
-    private PhysicalLog NewLog()
+    private VirtualTable NewTable()
     {
         FileMetadata metadata = new(_manifest.Path, FileType.Log, _manifest.NextFileNumber());
         PhysicalLog log = new(_fs, metadata);
+        VirtualTable table = new(log, _options.VirtualTableSize);
 
-        // FIXME: This unblocks writers and allows more than one writer in the write loop.
-#if false
         ManifestEdit edit = new()
         {
-            FilesRegistered = new[] { metadata.Id }
+            Registered = new object[] { table, log }
         };
 
         _manifest.Commit(edit);
-#endif
 
-        return log;
+        return table;
     }
 
     private void CompactTable(VirtualTable vtable)
     {
-        // Flush the virtual table to disk.
-        FileMetadata metadata = vtable.Flush(_fs, _manifest.Path);
-
-        // Commit the newly flushed PhysicalTable to the manifest so readers can see it.
+        PhysicalTable ptable = vtable.Flush(_fs, _manifest.Path);
         ManifestEdit edit = new()
         {
-            FilesRegistered = new[] { metadata.Id }
+            Registered = new object[] { ptable },
+            Unregistered = new object[] { vtable }
         };
 
-        lock (_sync)
-        {
-            _manifest.Commit(edit);
-            _l0n.Remove(vtable);
-        }
-
-        vtable.Dispose();
+        _manifest.Commit(edit);
     }
 
     public void Dispose()
@@ -184,16 +146,6 @@ internal sealed class LsmIndex : IDisposable
         _compactionQueue.Dispose();
         _compactionThread.Dispose();
 
-        lock (_sync)
-        {
-            _l0.Dispose();
-
-            foreach (VirtualTable table in _l0n)
-            {
-                table.Dispose();
-            }
-        }
-
         _manifest.Dispose();
         _disposed = true;
     }
@@ -202,36 +154,29 @@ internal sealed class LsmIndex : IDisposable
     {
         private bool _disposed;
         private readonly MergeIterator _iter;
+        private readonly ManifestState _state;
 
         public ReadOnlySpan<byte> Key => _iter.Key;
         public ReadOnlySpan<byte> Value => _iter.Value;
 
-        internal Iterator(LsmIndex index)
+        internal Iterator(ManifestState state)
         {
-            lock (index._sync)
+            _state = state;
+
+            List<IIterator> iters = new();
+
+            foreach (VirtualTable table in _state.VirtualTables)
             {
-                Manifest manifest = index._manifest;
-                ManifestState state = manifest.Current;
-                List<IIterator> iters = new();
-
-                foreach (VirtualTable table in index._l0n)
-                {
-                    iters.Add(table.GetIterator());
-                }
-
-                foreach (FileId fileId in state.Files)
-                {
-                    if (manifest.Resolve(fileId) is PhysicalTable table)
-                    {
-                        iters.Add(table.GetIterator());
-                    }
-                }
-
-                iters.Add(index._l0.GetIterator());
-
-                // FIXME: This iterator should be wrapped in an iterator which selects the latest version of the key.
-                _iter = new MergeIterator(iters.ToArray());
+                iters.Add(table.GetIterator());
             }
+
+            foreach (PhysicalTable table in _state.PhysicalTables)
+            {
+                iters.Add(table.GetIterator());
+            }
+
+            // FIXME: This iterator should be wrapped in an iterator which selects the latest version of the key.
+            _iter = new MergeIterator(iters.ToArray());
         }
 
         public bool Valid()

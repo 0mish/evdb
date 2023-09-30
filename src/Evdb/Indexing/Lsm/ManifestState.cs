@@ -1,34 +1,15 @@
-﻿using System.Collections.Immutable;
-
-namespace Evdb.Indexing.Lsm;
+﻿namespace Evdb.Indexing.Lsm;
 
 internal sealed class ManifestState
 {
-    public int ReferenceCount { get; private set; }
+    public VirtualTable[] VirtualTables { get; }
+    public PhysicalTable[] PhysicalTables { get; }
+    public PhysicalLog[] PhysicalLogs { get; }
 
-    public ulong VersionNumber { get; }
-    public ulong FileNumber { get; }
-    public ImmutableArray<FileId> Files { get; }
-
-    public ManifestState? Next { get; set; }
-    public ManifestState? Previous { get; set; }
-
-    public ManifestState(ulong versionNo, ulong fileNo, ImmutableArray<FileId> files)
+    public ManifestState(VirtualTable[] vtables, PhysicalTable[] ptables, PhysicalLog[] plogs)
     {
-        VersionNumber = versionNo;
-        FileNumber = fileNo;
-        Files = files;
-
-        ReferenceCount = 1;
-    }
-
-    public void Reference()
-    {
-        ReferenceCount++;
-    }
-
-    public bool Unreference()
-    {
-        return --ReferenceCount == 0;
+        VirtualTables = vtables;
+        PhysicalTables = ptables;
+        PhysicalLogs = plogs;
     }
 }
