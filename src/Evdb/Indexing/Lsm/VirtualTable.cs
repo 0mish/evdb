@@ -27,7 +27,7 @@ internal sealed class VirtualTable : IDisposable
 
     public bool TrySet(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value)
     {
-        if (Size > Capacity)
+        if (_disposed || Size > Capacity)
         {
             return false;
         }
@@ -42,6 +42,13 @@ internal sealed class VirtualTable : IDisposable
 
     public bool TryGet(ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
     {
+        if (_disposed)
+        {
+            value = default;
+
+            return false;
+        }
+
         return _kvs.TryGet(key, out value);
     }
 

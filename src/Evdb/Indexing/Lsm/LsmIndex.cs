@@ -45,23 +45,32 @@ internal sealed class LsmIndex : IDisposable
             return false;
         }
 
-        lock (_sync)
+        try
         {
-            ulong version = _manifest.VersionNumber;
-            ReadOnlySpan<byte> ikey = IndexKey.Encode(key, version);
+            EpochGC.Acquire();
 
-            while (!_table.TrySet(ikey, value))
+            lock (_sync)
             {
-                VirtualTable oldTable = _table;
+                ulong version = _manifest.VersionNumber;
+                ReadOnlySpan<byte> ikey = IndexKey.Encode(key, version);
 
-                _table = NewTable();
-                _compactionQueue.Enqueue(new CompactionJob(oldTable, CompactTable));
+                while (!_table.TrySet(ikey, value))
+                {
+                    VirtualTable oldTable = _table;
+
+                    _table = NewTable();
+                    _compactionQueue.Enqueue(new CompactionJob(oldTable, CompactTable));
+                }
+
+                // FIXME: Advance VersionNumber after key-value inserted.
             }
 
-            // FIXME: Advance VersionNumber after key-value inserted.
+            return true;
         }
-
-        return true;
+        finally
+        {
+            EpochGC.Release();
+        }
     }
 
     public bool TryGet(ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
@@ -73,33 +82,42 @@ internal sealed class LsmIndex : IDisposable
             return false;
         }
 
-        ulong version = _manifest.VersionNumber;
-        ReadOnlySpan<byte> ikey = IndexKey.Encode(key, version);
-
-        if (_table.TryGet(ikey, out value))
+        try
         {
-            return true;
-        }
+            EpochGC.Acquire();
 
-        ManifestState state = _manifest.Current;
+            ulong version = _manifest.VersionNumber;
+            ReadOnlySpan<byte> ikey = IndexKey.Encode(key, version);
 
-        foreach (VirtualTable table in state.VirtualTables)
-        {
-            if (table.TryGet(ikey, out value))
+            if (_table.TryGet(ikey, out value))
             {
                 return true;
             }
-        }
 
-        foreach (PhysicalTable table in state.PhysicalTables)
-        {
-            if (table.TryGet(ikey, out value))
+            ManifestState state = _manifest.Current;
+
+            foreach (VirtualTable table in state.VirtualTables)
             {
-                return true;
+                if (table.TryGet(ikey, out value))
+                {
+                    return true;
+                }
             }
-        }
 
-        return false;
+            foreach (PhysicalTable table in state.PhysicalTables)
+            {
+                if (table.TryGet(ikey, out value))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        finally
+        {
+            EpochGC.Release();
+        }
     }
 
     public Iterator GetIterator()
@@ -125,14 +143,25 @@ internal sealed class LsmIndex : IDisposable
 
     private void CompactTable(VirtualTable vtable)
     {
-        PhysicalTable ptable = vtable.Flush(_fs, _manifest.Path);
-        ManifestEdit edit = new()
+        try
         {
-            Registered = new object[] { ptable },
-            Unregistered = new object[] { vtable }
-        };
+            EpochGC.Acquire();
 
-        _manifest.Commit(edit);
+            PhysicalTable ptable = vtable.Flush(_fs, _manifest.Path);
+            ManifestEdit edit = new()
+            {
+                Registered = new object[] { ptable },
+                Unregistered = new object[] { vtable }
+            };
+
+            _manifest.Commit(edit);
+
+            EpochGC.Defer(vtable.Dispose);
+        }
+        finally
+        {
+            EpochGC.Release();
+        }
     }
 
     public void Dispose()

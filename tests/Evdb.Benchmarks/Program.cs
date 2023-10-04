@@ -14,6 +14,7 @@ Func<BenchmarkResult>[] benchmarks = new Func<BenchmarkResult>[]
     () => SingleWriterSingleReader(entries: 10000),
     () => MultipleWritersSingleReader(entries: 10000),
     () => SingleWriterMultipleReader(entries: 10000),
+    () => ConcurrnetMultipleWritersMultipleReader(entries: 10000),
 };
 
 string header = $"{"Benchmark Name",50} | {"Bytes Written/s",18:f2} | {"Bytes Read/s",18:f2} | {"Misses",10}";
@@ -40,6 +41,54 @@ foreach (Func<BenchmarkResult> benchmark in benchmarks)
     double bytesReadPerSecond = result.BytesRead / Scale / result.ReadDuration.TotalSeconds;
 
     Console.WriteLine($"{result.Name,50} | {bytesWrittenPerSecond,13:f2} mb/s | {bytesReadPerSecond,13:f2} mb/s | {result.Misses,10}");
+}
+
+BenchmarkResult ConcurrnetMultipleWritersMultipleReader(int entries)
+{
+    List<KeyValuePair<byte[], byte[]>> kvs = GenerateKeyValues(entries, keySize: 12, valueSize: 64);
+
+    using LsmIndex db = new(options);
+
+    TimeSpan wts = default;
+
+    // TODO: Use a fixed number of threads here.
+    Task wtask = Task.Run(() =>
+    {
+        Stopwatch wsw = Stopwatch.StartNew();
+
+        Parallel.ForEach(kvs, kv =>
+        {
+            db.TrySet(kv.Key, kv.Value);
+        });
+
+        wts = wsw.Elapsed;
+    });
+
+    ulong miss = 0;
+    TimeSpan rts = default;
+
+    // TODO: Use a fixed number of threads here.
+    Task rtask = Task.Run(() =>
+    {
+        Stopwatch rsw = Stopwatch.StartNew();
+
+        Parallel.ForEach(kvs, kv =>
+        {
+            if (!db.TryGet(kv.Key, out ReadOnlySpan<byte> val) || !val.SequenceEqual(kv.Value))
+            {
+                miss++;
+            }
+        });
+
+        rts = rsw.Elapsed;
+    });
+
+    Task.WaitAll(wtask, rtask);
+
+    // TODO: Actually calculate metric from the index.
+    ulong readWrite = (ulong)entries * (12 + 64);
+
+    return new BenchmarkResult("Multiple Writers and Multiple Readers", readWrite, readWrite, miss, wts, rts);
 }
 
 BenchmarkResult MultipleWritersSingleReader(int entries)
