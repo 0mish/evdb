@@ -7,9 +7,6 @@ internal readonly struct CompactionJob
 
     public CompactionJob(VirtualTable table, Action<VirtualTable> callback)
     {
-        ArgumentNullException.ThrowIfNull(table, nameof(table));
-        ArgumentNullException.ThrowIfNull(callback, nameof(callback));
-
         Table = table;
         Callback = callback;
     }
