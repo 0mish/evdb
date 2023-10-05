@@ -14,14 +14,14 @@ public sealed class RecordStream
 
     private readonly object _sync;
     private readonly byte[] _key;
-    private readonly LsmIndex _index;
+    private readonly Database _db;
 
     public string Name { get; }
 
-    internal RecordStream(LsmIndex index, string name)
+    internal RecordStream(Database db, string name)
     {
         _sync = new object();
-        _index = index;
+        _db = db;
         _key = Encoding.UTF8.GetBytes(name);
 
         Name = name;
@@ -41,7 +41,7 @@ public sealed class RecordStream
             ReadOnlySpan<byte> key = RecordKey.Encode(_key, _count);
             ReadOnlySpan<byte> value = Record.Encode(record.Type, record.Data);
 
-            if (!_index.TrySet(key, value))
+            if (!_db.TrySet(key, value))
             {
                 throw new Exception("Failed to append Record.");
             }
@@ -71,7 +71,7 @@ public sealed class RecordStream
 
     public class Iterator : IEnumerable<BoxedRecord>
     {
-        private readonly LsmIndex.Iterator _iter;
+        private readonly Database.Iterator _iter;
         private readonly RecordStream _stream;
 
         public Record Record => Valid() ? new Record(default, _iter.Value) : default;
@@ -79,7 +79,7 @@ public sealed class RecordStream
         internal Iterator(RecordStream stream)
         {
             _stream = stream;
-            _iter = stream._index.GetIterator();
+            _iter = stream._db.GetIterator();
 
             MoveToFirst();
         }

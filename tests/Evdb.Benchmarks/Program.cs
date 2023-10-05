@@ -1,7 +1,7 @@
 ﻿using Evdb.Indexing.Lsm;
 using System.Diagnostics;
 
-LsmIndexOptions options = new()
+DatabaseOptions options = new()
 {
     Path = "db",
 
@@ -47,7 +47,7 @@ BenchmarkResult ConcurrnetMultipleWritersMultipleReader(int entries)
 {
     List<KeyValuePair<byte[], byte[]>> kvs = GenerateKeyValues(entries, keySize: 12, valueSize: 64);
 
-    using LsmIndex db = new(options);
+    using Database db = new(options);
 
     TimeSpan wts = default;
 
@@ -95,7 +95,7 @@ BenchmarkResult MultipleWritersSingleReader(int entries)
 {
     List<KeyValuePair<byte[], byte[]>> kvs = GenerateKeyValues(entries, keySize: 12, valueSize: 64);
 
-    using LsmIndex db = new(options);
+    using Database db = new(options);
 
     Stopwatch sw = Stopwatch.StartNew();
 
@@ -127,7 +127,7 @@ BenchmarkResult SingleWriterSingleReader(int entries)
 {
     List<KeyValuePair<byte[], byte[]>> kvs = GenerateKeyValues(entries, keySize: 12, valueSize: 64);
 
-    using LsmIndex db = new(options);
+    using Database db = new(options);
 
     Stopwatch sw = Stopwatch.StartNew();
 
@@ -158,7 +158,7 @@ BenchmarkResult SingleWriterMultipleReader(int entries)
 {
     List<KeyValuePair<byte[], byte[]>> kvs = GenerateKeyValues(entries, keySize: 12, valueSize: 64);
 
-    using LsmIndex db = new(options);
+    using Database db = new(options);
 
     Stopwatch sw = Stopwatch.StartNew();
 

@@ -7,17 +7,17 @@ namespace Evdb;
 public sealed class Store : IDisposable
 {
     private bool _disposed;
-    private readonly LsmIndex _index;
+    private readonly Database _index;
     private readonly ConcurrentDictionary<string, RecordStream> _streams;
 
     public Store(string path)
     {
-        LsmIndexOptions options = new()
+        DatabaseOptions options = new()
         {
             Path = path
         };
 
-        _index = new LsmIndex(options);
+        _index = new Database(options);
         _streams = new ConcurrentDictionary<string, RecordStream>();
     }
 

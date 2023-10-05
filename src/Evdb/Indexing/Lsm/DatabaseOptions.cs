@@ -2,7 +2,7 @@
 
 namespace Evdb.Indexing.Lsm;
 
-internal sealed class LsmIndexOptions
+internal sealed class DatabaseOptions
 {
     public int VirtualTableSize { get; set; } = 1024 * 16;
 
