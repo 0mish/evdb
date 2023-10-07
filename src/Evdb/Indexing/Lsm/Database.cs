@@ -156,6 +156,7 @@ internal sealed class Database : IDisposable
 
             _manifest.Commit(edit);
 
+            // FIXME: Iterators can still be pointing to that vtable and iterators do not care about the vtable.
             EpochGC.Defer(vtable.Dispose);
         }
         finally
