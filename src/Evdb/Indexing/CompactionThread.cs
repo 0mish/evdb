@@ -1,4 +1,4 @@
-﻿namespace Evdb.Indexing.Lsm;
+﻿namespace Evdb.Indexing;
 
 internal sealed class CompactionThread : IDisposable
 {

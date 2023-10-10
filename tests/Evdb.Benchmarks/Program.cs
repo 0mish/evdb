@@ -1,4 +1,4 @@
-﻿using Evdb.Indexing.Lsm;
+﻿using Evdb.Indexing;
 using System.Diagnostics;
 
 DatabaseOptions options = new()

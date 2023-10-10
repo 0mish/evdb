@@ -1,7 +1,4 @@
-﻿using Evdb.Indexing.Lsm;
-using Evdb.IO;
-
-namespace Evdb.Tests.Indexing.Lsm;
+﻿namespace Evdb.Tests.Indexing;
 
 public class ManifestTests
 {

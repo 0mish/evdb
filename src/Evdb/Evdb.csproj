@@ -8,9 +8,9 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <InternalsVisibleTo Include="Evdb.Tests"/>
-        <InternalsVisibleTo Include="Evdb.Benchmarks"/>
-        <InternalsVisibleTo Include="Evdb.MicroBenchmarks"/>
+        <InternalsVisibleTo Include="Evdb.Tests" />
+        <InternalsVisibleTo Include="Evdb.Benchmarks" />
+        <InternalsVisibleTo Include="Evdb.MicroBenchmarks" />
     </ItemGroup>
 
 </Project>

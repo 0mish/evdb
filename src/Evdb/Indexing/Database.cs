@@ -1,6 +1,6 @@
 ﻿using Evdb.IO;
 
-namespace Evdb.Indexing.Lsm;
+namespace Evdb.Indexing;
 
 internal sealed class Database : IDisposable
 {

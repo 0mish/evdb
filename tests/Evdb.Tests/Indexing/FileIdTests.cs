@@ -1,6 +1,6 @@
-﻿using Evdb.Indexing.Lsm;
+﻿using Evdb.Indexing;
 
-namespace Evdb.Tests.Indexing.Lsm;
+namespace Evdb.Tests.Indexing;
 
 public class FileIdTests
 {
