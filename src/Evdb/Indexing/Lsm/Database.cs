@@ -191,6 +191,8 @@ internal sealed class Database : IDisposable
 
         internal Iterator(ManifestState state)
         {
+            EpochGC.Acquire();
+
             _state = state;
 
             List<IIterator> iters = new();
@@ -237,6 +239,8 @@ internal sealed class Database : IDisposable
             }
 
             _iter.Dispose();
+            EpochGC.Release();
+
             _disposed = true;
         }
     }
