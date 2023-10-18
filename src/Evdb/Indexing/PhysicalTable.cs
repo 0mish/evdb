@@ -1,4 +1,5 @@
 ﻿using Evdb.Collections;
+using Evdb.Indexing.Format;
 using Evdb.IO;
 using System.Diagnostics;
 using System.Text;
@@ -11,29 +12,39 @@ internal sealed class PhysicalTable : File, IDisposable
     private string DebuggerDisplay => $"PhysicalTable {Metadata.Path}";
 
     private bool _disposed;
-    private readonly IFileSystem _fs;
-    private readonly BloomFilter _filter;
-    private readonly byte[] _firstKey;
-    private readonly byte[] _lastKey;
-    private readonly long _position;
 
-    public PhysicalTable(IFileSystem fs, FileMetadata metadata) : base(metadata)
+    private Stream _file = default!;
+    private BinaryReader _reader = default!;
+
+    private readonly BloomFilter? _filter;
+    private readonly Block _index;
+    private readonly Footer _footer;
+
+    private readonly IFileSystem _fs;
+    private readonly IBlockCache _blockCache;
+
+    public PhysicalTable(IFileSystem fs, FileMetadata metadata, IBlockCache blockCache) : base(metadata)
     {
         _fs = fs;
+        _blockCache = blockCache;
 
-        using Stream file = fs.OpenFile(metadata.Path, FileMode.Open, FileAccess.Read, FileShare.Read);
-        using BinaryReader reader = new(file);
+        Open();
 
-        _filter = new BloomFilter(reader.ReadByteArray());
-        _firstKey = reader.ReadByteArray();
-        _lastKey = reader.ReadByteArray();
-        _position = file.Position;
+        _footer = ReadFooter();
+        _filter = ReadFilter();
+        _index = ReadIndex();
+    }
+
+    private void Open()
+    {
+        _file = _fs.OpenFile(Metadata.Path, FileMode.Open, FileAccess.Read, FileShare.None);
+        _reader = new(_file, Encoding.UTF8, leaveOpen: true);
     }
 
     public bool TryGet(ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
     {
         // If not in range of keys in the table, we exit early.
-        if (key.SequenceCompareTo(_firstKey) < 0 || key.SequenceCompareTo(_lastKey) > 0)
+        if (key.SequenceCompareTo(_footer.FirstKey) < 0 || key.SequenceCompareTo(_footer.LastKey) > 0)
         {
             value = default;
 
@@ -41,7 +52,7 @@ internal sealed class PhysicalTable : File, IDisposable
         }
 
         // If not in filter, we exit early.
-        if (!_filter.Test(key))
+        if (_filter != null && !_filter.Test(key))
         {
             value = default;
 
@@ -51,14 +62,13 @@ internal sealed class PhysicalTable : File, IDisposable
         // Otherwise we perform the look up in the file.
         using Iterator iter = GetIterator();
 
-        for (iter.MoveToFirst(); iter.Valid(); iter.MoveNext())
-        {
-            if (iter.Key.SequenceEqual(key))
-            {
-                value = iter.Value;
+        iter.MoveTo(key);
 
-                return true;
-            }
+        if (iter.IsValid && iter.Key.SequenceEqual(key))
+        {
+            value = iter.Value;
+
+            return true;
         }
 
         value = default;
@@ -68,7 +78,7 @@ internal sealed class PhysicalTable : File, IDisposable
 
     public Iterator GetIterator()
     {
-        return new Iterator(_fs, Metadata, _position);
+        return new Iterator(this);
     }
 
     public void Dispose()
@@ -78,77 +88,170 @@ internal sealed class PhysicalTable : File, IDisposable
             return;
         }
 
+        _reader?.Dispose();
+        _file?.Dispose();
+
         _disposed = true;
+    }
+
+    private Block? ReadBlock(BlockHandle handle)
+    {
+        if (handle.Position >= (ulong)_file!.Length || handle.Position + handle.Length > (ulong)_file.Length)
+        {
+            return null;
+        }
+
+        if (_blockCache.TryGet(Metadata.Id, handle, out Block? block))
+        {
+            return block;
+        }
+
+        byte[] data = new byte[handle.Length];
+
+        // If stream is a FileStream, try to read directly without locks.
+        if (_file is FileStream fileStream)
+        {
+            RandomAccess.Read(fileStream.SafeFileHandle, data, (long)handle.Position);
+        }
+        else
+        {
+            lock (_file)
+            {
+                _file.Seek((long)handle.Position, SeekOrigin.Begin);
+                _file.Read(data, 0, data.Length);
+            }
+        }
+
+        block = new Block(data);
+
+        _blockCache.Set(Metadata.Id, handle, block);
+
+        return block;
+    }
+
+    private Block ReadIndex()
+    {
+        return ReadBlock(_footer.IndexBlock) ?? throw new Exception("Failed to read index of physical table.");
+    }
+
+    private BloomFilter ReadFilter()
+    {
+        return new BloomFilter(_footer.Filter);
+    }
+
+    private Footer ReadFooter()
+    {
+        _reader.BaseStream.Seek(-sizeof(int), SeekOrigin.End);
+
+        int footerLength = _reader.ReadInt32();
+
+        _reader.BaseStream.Seek(-sizeof(int) - footerLength, SeekOrigin.End);
+
+        return new Footer
+        {
+            Filter = _reader.ReadByteArray(),
+            FirstKey = _reader.ReadByteArray(),
+            LastKey = _reader.ReadByteArray(),
+            IndexBlock = BlockHandle.Read(_reader)
+        };
+    }
+
+    private struct Footer
+    {
+        public byte[] Filter { get; set; }
+        public byte[] FirstKey { get; set; }
+        public byte[] LastKey { get; set; }
+        public BlockHandle IndexBlock { get; set; }
     }
 
     public sealed class Iterator : IIterator
     {
         private bool _disposed;
 
-        private byte[]? _key;
-        private byte[]? _value;
+        private Block.Iterator? _dataIterator;
+        private readonly Block.Iterator _indexIterator;
+        private readonly PhysicalTable _table;
 
-        private readonly BinaryReader _reader;
-        private readonly long _position;
+        public ReadOnlySpan<byte> Key => _dataIterator!.Key;
+        public ReadOnlySpan<byte> Value => _dataIterator!.Value;
+        public bool IsValid => !_disposed && _indexIterator.IsValid;
 
-        public ReadOnlySpan<byte> Key => _key;
-        public ReadOnlySpan<byte> Value => _value;
-
-        public Iterator(IFileSystem fs, FileMetadata metadata, long position)
+        public Iterator(PhysicalTable table)
         {
-            // TODO: optimize - Instead of creating a new file handle each, we can pool them instead.
-            Stream file = fs.OpenFile(metadata.Path, FileMode.Open, FileAccess.Read, FileShare.Read);
-
-            _reader = new BinaryReader(file, Encoding.UTF8, leaveOpen: false);
-            _position = position;
-
-            MoveToFirst();
-        }
-
-        public bool Valid()
-        {
-            return !_disposed && _key != null && _value != null;
+            _table = table;
+            _indexIterator = table._index.GetIterator();
         }
 
         public void MoveToFirst()
         {
-            _reader.BaseStream.Seek(_position, SeekOrigin.Begin);
+            _indexIterator.MoveToFirst();
 
-            MoveNext();
+            InitDataIterator();
+
+            _dataIterator?.MoveToFirst();
         }
 
         public void MoveTo(ReadOnlySpan<byte> key)
         {
-            MoveToFirst();
+            _indexIterator.MoveTo(key);
 
-            while (Valid() && key.SequenceCompareTo(Key) < 0)
-            {
-                MoveNext();
-            }
+            InitDataIterator();
+
+            _dataIterator?.MoveTo(key);
         }
 
         public void MoveNext()
         {
-            if (_reader.BaseStream.Position < _reader.BaseStream.Length)
+            _dataIterator?.MoveNext();
+
+            MoveNextDataIterator();
+        }
+
+        private void InitDataIterator()
+        {
+            if (!_indexIterator.IsValid)
             {
-                _key = _reader.ReadByteArray();
-                _value = _reader.ReadByteArray();
+                _dataIterator = null;
+
+                return;
             }
-            else
+
+            BlockHandle dataHandle = new(_indexIterator.Value);
+            Block? dataBlock = _table.ReadBlock(dataHandle);
+
+            if (dataBlock == null)
             {
-                _key = null;
-                _value = null;
+                _dataIterator = null;
+
+                return;
+            }
+
+            _dataIterator?.Dispose();
+            _dataIterator = dataBlock.GetIterator();
+        }
+
+        private void MoveNextDataIterator()
+        {
+            while (_dataIterator != null && !_dataIterator.IsValid)
+            {
+                _indexIterator.MoveNext();
+
+                InitDataIterator();
+
+                _dataIterator?.MoveToFirst();
             }
         }
 
         public void Dispose()
         {
-            if (_disposed)
+            if (!_disposed)
             {
                 return;
             }
 
-            _reader.Dispose();
+            _dataIterator?.Dispose();
+            _indexIterator.Dispose();
+
             _disposed = true;
         }
     }

@@ -1,14 +1,13 @@
 ﻿using Evdb.Collections;
 using Evdb.IO;
 using System.Diagnostics;
-using System.Text;
 
 namespace Evdb.Indexing;
 
 [DebuggerDisplay("{DebuggerDisplay,nq}")]
 internal sealed class VirtualTable : IDisposable
 {
-    private string DebuggerDisplay => $"VirtualTable {_log.Metadata.Path}";
+    private string DebuggerDisplay => $"VirtualTable {_log?.Metadata.Path}";
 
     private bool _disposed;
     private readonly SkipList _kvs;
@@ -57,35 +56,17 @@ internal sealed class VirtualTable : IDisposable
         return new Iterator(_kvs.GetIterator());
     }
 
-    // TODO: Consider empty tables.
-    public PhysicalTable Flush(IFileSystem fs, FileMetadata metadata)
+    public void Flush(IFileSystem fs, FileMetadata metadata)
     {
-        using (Stream file = fs.OpenFile(metadata.Path, FileMode.Create, FileAccess.Write, FileShare.None))
-        using (BinaryWriter writer = new(file, Encoding.UTF8, leaveOpen: true))
+        using Stream file = fs.OpenFile(metadata.Path, FileMode.Create, FileAccess.Write, FileShare.None);
+        using PhysicalTableBuilder builder = new(file, leaveOpen: true);
+
+        SkipList.Iterator iter = _kvs.GetIterator();
+
+        for (iter.MoveToFirst(); iter.IsValid; iter.MoveNext())
         {
-            BloomFilter filter = new(size: 4096);
-            SkipList.Iterator iter = _kvs.GetIterator();
-
-            for (iter.MoveToFirst(); iter.Valid(); iter.MoveNext())
-            {
-                filter.Set(iter.Key);
-            }
-
-            _kvs.TryGetFirst(out ReadOnlySpan<byte> firstKey, out _);
-            _kvs.TryGetLast(out ReadOnlySpan<byte> lastKey, out _);
-
-            writer.WriteByteArray(filter.Buffer);
-            writer.WriteByteArray(firstKey);
-            writer.WriteByteArray(lastKey);
-
-            for (iter.MoveToFirst(); iter.Valid(); iter.MoveNext())
-            {
-                writer.WriteByteArray(iter.Key);
-                writer.WriteByteArray(iter.Value);
-            }
+            builder.Add(iter.Key, iter.Value);
         }
-
-        return new PhysicalTable(fs, metadata);
     }
 
     public void Dispose()
@@ -105,15 +86,11 @@ internal sealed class VirtualTable : IDisposable
 
         public ReadOnlySpan<byte> Key => _iter.Key;
         public ReadOnlySpan<byte> Value => _iter.Value;
+        public bool IsValid => _iter.IsValid;
 
         public Iterator(SkipList.Iterator iter)
         {
             _iter = iter;
-        }
-
-        public bool Valid()
-        {
-            return _iter.Valid();
         }
 
         public void MoveToFirst()

@@ -5,23 +5,19 @@ namespace Evdb.Indexing;
 internal sealed class MergeIterator : IIterator
 {
     private bool _disposed;
-    private IIterator _curr;
+    private IIterator? _curr;
     private readonly IIterator[] _iters;
 
-    public ReadOnlySpan<byte> Key => _curr.Key;
-    public ReadOnlySpan<byte> Value => _curr.Value;
+    public ReadOnlySpan<byte> Key => _curr!.Key;
+    public ReadOnlySpan<byte> Value => _curr!.Value;
+    public bool IsValid => _curr != null && _curr.IsValid;
 
     public MergeIterator(IIterator[] iters)
     {
         Debug.Assert(iters.Length > 0);
 
         _iters = iters;
-        _curr = GetMinIterator();
-    }
-
-    public bool Valid()
-    {
-        return _curr.Valid();
+        _curr = null;
     }
 
     public void MoveToFirst()
@@ -46,23 +42,25 @@ internal sealed class MergeIterator : IIterator
 
     public void MoveNext()
     {
-        _curr.MoveNext();
+        _curr?.MoveNext();
         _curr = GetMinIterator();
     }
 
-    private IIterator GetMinIterator()
+    private IIterator? GetMinIterator()
     {
         IIterator minIter = _iters[0];
 
         for (int i = 1; i < _iters.Length; i++)
         {
-            if (_iters[i].Key.SequenceCompareTo(minIter.Key) < 0)
+            IIterator iter = _iters[i];
+
+            if (iter.IsValid && iter.Key.SequenceCompareTo(minIter.Key) < 0)
             {
-                minIter = _iters[i];
+                minIter = iter;
             }
         }
 
-        return minIter;
+        return minIter.IsValid ? minIter : null;
     }
 
     public void Dispose()
@@ -71,6 +69,8 @@ internal sealed class MergeIterator : IIterator
         {
             return;
         }
+
+        _curr = null;
 
         foreach (IIterator iter in _iters)
         {

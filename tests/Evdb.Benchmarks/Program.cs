@@ -14,7 +14,7 @@ Func<BenchmarkResult>[] benchmarks = new Func<BenchmarkResult>[]
     () => SingleWriterSingleReader(entries: 10000),
     () => MultipleWritersSingleReader(entries: 10000),
     () => SingleWriterMultipleReader(entries: 10000),
-    () => ConcurrnetMultipleWritersMultipleReader(entries: 10000),
+    () => ConcurrentMultipleWritersMultipleReader(entries: 10000),
 };
 
 string header = $"{"Benchmark Name",50} | {"Bytes Written/s",18:f2} | {"Bytes Read/s",18:f2} | {"Misses",10}";
@@ -43,7 +43,7 @@ foreach (Func<BenchmarkResult> benchmark in benchmarks)
     Console.WriteLine($"{result.Name,50} | {bytesWrittenPerSecond,13:f2} mb/s | {bytesReadPerSecond,13:f2} mb/s | {result.Misses,10}");
 }
 
-BenchmarkResult ConcurrnetMultipleWritersMultipleReader(int entries)
+BenchmarkResult ConcurrentMultipleWritersMultipleReader(int entries)
 {
     List<KeyValuePair<byte[], byte[]>> kvs = GenerateKeyValues(entries, keySize: 12, valueSize: 64);
 

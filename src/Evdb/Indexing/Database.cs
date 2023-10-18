@@ -1,4 +1,5 @@
-﻿using Evdb.IO;
+﻿using Evdb.Indexing.Format;
+using Evdb.IO;
 
 namespace Evdb.Indexing;
 
@@ -17,6 +18,7 @@ internal sealed class Database : IDisposable
     private readonly Manifest _manifest;
     private readonly DatabaseOptions _options;
     private readonly IFileSystem _fs;
+    private readonly IBlockCache _blockCache;
 
     public bool IsCompacting => _compactionQueue.Count > 0;
 
@@ -38,6 +40,8 @@ internal sealed class Database : IDisposable
         // Make the number of compaction thread configurable.
         _compactionQueue = new CompactionQueue();
         _compactionThread = new CompactionThread(_compactionQueue);
+
+        _blockCache = new WeakReferenceBlockCache();
 
         _table = NewTable();
     }
@@ -90,15 +94,9 @@ internal sealed class Database : IDisposable
         {
             EpochGC.Acquire();
 
+            ManifestState state = _manifest.Current;
             ulong version = _manifest.VersionNumber;
             ReadOnlySpan<byte> ikey = IndexKey.Encode(key, version);
-
-            if (_table.TryGet(ikey, out value))
-            {
-                return true;
-            }
-
-            ManifestState state = _manifest.Current;
 
             foreach (VirtualTable table in state.VirtualTables)
             {
@@ -115,6 +113,8 @@ internal sealed class Database : IDisposable
                     return true;
                 }
             }
+
+            value = default;
 
             return false;
         }
@@ -137,7 +137,7 @@ internal sealed class Database : IDisposable
 
             using Iterator iter = new(_manifest.Current);
 
-            for (iter.MoveTo(startKey); iter.Valid() && iter.Key.SequenceCompareTo(endKey) <= 0; iter.MoveNext())
+            for (iter.MoveTo(startKey); iter.IsValid && iter.Key.SequenceCompareTo(endKey) <= 0; iter.MoveNext())
             {
                 action(iter.Key, iter.Value);
             }
@@ -152,6 +152,7 @@ internal sealed class Database : IDisposable
 
     public Iterator GetIterator()
     {
+        // NOTE: Iterators maybe broken because they do not use EBR directly.
         return new Iterator(_manifest.Current);
     }
 
@@ -178,7 +179,10 @@ internal sealed class Database : IDisposable
             EpochGC.Acquire();
 
             FileMetadata metadata = new(_manifest.Path, FileType.Table, _manifest.NextFileNumber());
-            PhysicalTable ptable = vtable.Flush(_fs, metadata);
+
+            vtable.Flush(_fs, metadata);
+
+            PhysicalTable ptable = new(_fs, metadata, _blockCache);
             ManifestEdit edit = new()
             {
                 Registered = new object[] { ptable },
@@ -215,34 +219,27 @@ internal sealed class Database : IDisposable
     {
         private bool _disposed;
         private readonly MergeIterator _iter;
-        private readonly ManifestState _state;
 
         public ReadOnlySpan<byte> Key => _iter.Key;
         public ReadOnlySpan<byte> Value => _iter.Value;
+        public bool IsValid => _iter.IsValid;
 
         internal Iterator(ManifestState state)
         {
-            _state = state;
-
             List<IIterator> iters = new();
 
-            foreach (VirtualTable table in _state.VirtualTables)
+            foreach (VirtualTable table in state.VirtualTables)
             {
                 iters.Add(table.GetIterator());
             }
 
-            foreach (PhysicalTable table in _state.PhysicalTables)
+            foreach (PhysicalTable table in state.PhysicalTables)
             {
                 iters.Add(table.GetIterator());
             }
 
             // FIXME: This iterator should be wrapped in an iterator which selects the latest version of the key.
             _iter = new MergeIterator(iters.ToArray());
-        }
-
-        public bool Valid()
-        {
-            return _iter.Valid();
         }
 
         public void MoveToFirst()

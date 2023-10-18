@@ -185,19 +185,13 @@ internal sealed class SkipList
         private Node? _node;
         private readonly SkipList _sl;
 
-        public ReadOnlySpan<byte> Key => _node != null ? _node.Key : default;
-        public ReadOnlySpan<byte> Value => _node != null ? _node.Value : default;
+        public readonly ReadOnlySpan<byte> Key => _node != null ? _node.Key : default;
+        public readonly ReadOnlySpan<byte> Value => _node != null ? _node.Value : default;
+        public readonly bool IsValid => _node != null;
 
         public Iterator(SkipList sl)
         {
             _sl = sl;
-
-            MoveToFirst();
-        }
-        
-        public bool Valid()
-        {
-            return _node != null;
         }
 
         public void MoveToFirst()

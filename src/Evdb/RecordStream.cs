@@ -86,7 +86,7 @@ public sealed class RecordStream
 
         public bool Valid()
         {
-            return _iter.Valid() && _iter.Key.StartsWith(_stream._key);
+            return _iter.IsValid && _iter.Key.StartsWith(_stream._key);
         }
 
         public void MoveToFirst()

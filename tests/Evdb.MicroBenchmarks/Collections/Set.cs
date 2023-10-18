@@ -3,7 +3,7 @@ using Evdb.Collections;
 
 namespace Evdb.MicroBenchmarks.Collections;
 
-public class SetBenchmark
+public class Set
 {
     private List<KeyValuePair<byte[], byte[]>> _kvs = default!;
 

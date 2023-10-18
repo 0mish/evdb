@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
-namespace Evdb.MicroBenchmarks;
+namespace Evdb.Tests;
 
 public class ByteArrayComparer : IEqualityComparer<byte[]>, IComparer<byte[]>
 {
@@ -31,7 +31,7 @@ public class ByteArrayComparer : IEqualityComparer<byte[]>, IComparer<byte[]>
 
 public static class Generator
 {
-    public static List<KeyValuePair<byte[], byte[]>> KeyValues(int count, int keySize = 12, int valueSize = 64)
+    public static Dictionary<byte[], byte[]> KeyValues(int count, int keySize = 12, int valueSize = 64)
     {
         Random random = new(Seed: 0);
         Dictionary<byte[], byte[]> kvs = new(new ByteArrayComparer());
@@ -47,6 +47,6 @@ public static class Generator
             kvs[key.ToArray()] = value.ToArray();
         }
 
-        return kvs.ToList();
+        return kvs;
     }
 }
