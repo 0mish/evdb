@@ -147,7 +147,8 @@ internal sealed class Database : IDisposable
         {
             EpochGC.Acquire();
 
-            PhysicalTable ptable = vtable.Flush(_fs, _manifest.Path);
+            FileMetadata metadata = new(_manifest.Path, FileType.Table, _manifest.NextFileNumber());
+            PhysicalTable ptable = vtable.Flush(_fs, metadata);
             ManifestEdit edit = new()
             {
                 Registered = new object[] { ptable },
@@ -156,7 +157,7 @@ internal sealed class Database : IDisposable
 
             _manifest.Commit(edit);
 
-            // FIXME: Iterators can still be pointing to that vtable and iterators do not care about the vtable.
+            // Dispose the table once all thread passes this epoch.
             EpochGC.Defer(vtable.Dispose);
         }
         finally

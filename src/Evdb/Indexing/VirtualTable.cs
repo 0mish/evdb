@@ -12,12 +12,12 @@ internal sealed class VirtualTable : IDisposable
 
     private bool _disposed;
     private readonly SkipList _kvs;
-    private readonly PhysicalLog _log;
+    private readonly PhysicalLog? _log;
 
     public long Size { get; private set; }
     public long Capacity { get; }
 
-    public VirtualTable(PhysicalLog log, long capacity)
+    public VirtualTable(PhysicalLog? log, long capacity)
     {
         Capacity = capacity;
 
@@ -32,7 +32,7 @@ internal sealed class VirtualTable : IDisposable
             return false;
         }
 
-        _log.LogSet(key, value);
+        _log?.LogSet(key, value);
         _kvs.Set(key, value);
 
         Size += key.Length + value.Length;
@@ -58,10 +58,8 @@ internal sealed class VirtualTable : IDisposable
     }
 
     // TODO: Consider empty tables.
-    public PhysicalTable Flush(IFileSystem fs, string path)
+    public PhysicalTable Flush(IFileSystem fs, FileMetadata metadata)
     {
-        FileMetadata metadata = new(path, FileType.Table, _log.Metadata.Id.Number);
-
         using (Stream file = fs.OpenFile(metadata.Path, FileMode.Create, FileAccess.Write, FileShare.None))
         using (BinaryWriter writer = new(file, Encoding.UTF8, leaveOpen: true))
         {
