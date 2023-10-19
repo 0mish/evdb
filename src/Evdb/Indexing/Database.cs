@@ -2,6 +2,8 @@
 
 namespace Evdb.Indexing;
 
+internal delegate void KeyValueAction(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value);
+
 internal sealed class Database : IDisposable
 {
     private bool _disposed;
@@ -120,6 +122,32 @@ internal sealed class Database : IDisposable
         }
     }
 
+    public bool TryGetRange(ReadOnlySpan<byte> startKey, ReadOnlySpan<byte> endKey, KeyValueAction action)
+    {
+        if (_disposed)
+        {
+            return false;
+        }
+
+        try
+        {
+            EpochGC.Acquire();
+
+            using Iterator iter = new(_manifest.Current);
+
+            for (iter.MoveTo(startKey); iter.Valid() && iter.Key.SequenceCompareTo(endKey) <= 0; iter.MoveNext())
+            {
+                action(iter.Key, iter.Value);
+            }
+        }
+        finally
+        {
+            EpochGC.Release();
+        }
+
+        return true;
+    }
+
     public Iterator GetIterator()
     {
         return new Iterator(_manifest.Current);
@@ -192,8 +220,6 @@ internal sealed class Database : IDisposable
 
         internal Iterator(ManifestState state)
         {
-            EpochGC.Acquire();
-
             _state = state;
 
             List<IIterator> iters = new();
@@ -240,7 +266,6 @@ internal sealed class Database : IDisposable
             }
 
             _iter.Dispose();
-            EpochGC.Release();
 
             _disposed = true;
         }
