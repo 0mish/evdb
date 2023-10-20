@@ -25,7 +25,7 @@ Console.WriteLine(divider);
 
 foreach (Func<BenchmarkResult> benchmark in benchmarks)
 {
-    const int WarmUpCount = 5;
+    const int WarmUpCount = 1;
 
     // Warm up before actual result.
     for (int i = 0; i < WarmUpCount; i++)
@@ -105,8 +105,14 @@ BenchmarkResult MultipleWritersSingleReader(int entries)
         db.TrySet(kv.Key, kv.Value);
     });
 
+    sw.Stop();
+
     ulong miss = 0;
     TimeSpan wts = sw.Elapsed;
+
+    while (db.IsCompacting) Thread.Yield();
+
+    sw.Start();
 
     foreach (KeyValuePair<byte[], byte[]> kv in kvs)
     {
@@ -136,8 +142,14 @@ BenchmarkResult SingleWriterSingleReader(int entries)
         db.TrySet(kv.Key, kv.Value);
     }
 
+    sw.Stop();
+
     ulong miss = 0;
     TimeSpan wts = sw.Elapsed;
+
+    while (db.IsCompacting) Thread.Yield();
+
+    sw.Start();
 
     foreach (KeyValuePair<byte[], byte[]> kv in kvs)
     {
@@ -167,8 +179,14 @@ BenchmarkResult SingleWriterMultipleReader(int entries)
         db.TrySet(kv.Key, kv.Value);
     }
 
+    sw.Stop();
+
     ulong miss = 0;
     TimeSpan wts = sw.Elapsed;
+
+    while (db.IsCompacting) Thread.Yield();
+
+    sw.Start();
 
     // TODO: Use a fixed number of threads here.
     Parallel.ForEach(kvs, kv =>

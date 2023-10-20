@@ -18,6 +18,8 @@ internal sealed class Database : IDisposable
     private readonly DatabaseOptions _options;
     private readonly IFileSystem _fs;
 
+    public bool IsCompacting => _compactionQueue.Count > 0;
+
     public Database(DatabaseOptions options)
     {
         _options = options;
