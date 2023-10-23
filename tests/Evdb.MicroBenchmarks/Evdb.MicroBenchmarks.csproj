@@ -15,4 +15,8 @@
     <ProjectReference Include="..\..\src\Evdb\Evdb.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="BenchmarkDotNet.Artifacts\" />
+  </ItemGroup>
+
 </Project>

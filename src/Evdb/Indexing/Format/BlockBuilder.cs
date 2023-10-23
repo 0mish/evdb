@@ -1,42 +1,39 @@
 ﻿using Evdb.IO;
-using System.Text;
 
 namespace Evdb.Indexing.Format;
 
-internal sealed class BlockBuilder : IDisposable
+internal struct BlockBuilder
 {
-    private bool _disposed;
-    private readonly BinaryWriter _writer;
+    private BinaryEncoder _encoder;
 
-    public Stream BaseStream { get; }
-    public ulong Length { get; private set; }
+    public readonly ReadOnlySpan<byte> Span => _encoder.Span;
+    public readonly ulong Length => _encoder.Length;
+    public readonly bool IsEmpty => _encoder.IsEmpty;
 
-    public BlockBuilder(Stream stream, bool leaveOpen)
+    public BlockBuilder()
     {
-        BaseStream = stream;
-
-        _writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen);
+        _encoder = new BinaryEncoder(Array.Empty<byte>());
     }
 
     public void Add(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value)
     {
-        ulong position = (ulong)_writer.BaseStream.Position;
-
-        _writer.WriteByteArray(key);
-        _writer.WriteByteArray(value);
-
-        Length += (ulong)_writer.BaseStream.Position - position;
+        // TODO: Implement restarts, prefix-truncation, prefix-compression.
+        _encoder.ByteArray(key);
+        _encoder.ByteArray(value);
     }
 
-    public void Dispose()
+    public void Complete()
     {
-        if (_disposed)
-        {
-            return;
-        }
+        // TODO: Encode CRC32 checksum and other metadata.
+    }
 
-        _writer.Dispose();
+    public void Reset()
+    {
+        _encoder.Reset();
+    }
 
-        _disposed = true;
+    public readonly void CopyTo(Stream stream)
+    {
+        stream.Write(_encoder.Span);
     }
 }

@@ -1,4 +1,5 @@
-﻿using System.Buffers.Binary;
+﻿using Evdb.IO;
+using System.Buffers.Binary;
 using System.Diagnostics.CodeAnalysis;
 
 namespace Evdb.Indexing.Format;
@@ -51,12 +52,15 @@ internal struct BlockHandle : IEquatable<BlockHandle>
         return result;
     }
 
-    public static BlockHandle Read(BinaryReader reader)
+    public static BlockHandle Read(ref BinaryDecoder reader)
     {
+        reader.UInt64(out ulong position);
+        reader.UInt64(out ulong length);
+
         return new BlockHandle
         {
-            Position = reader.ReadUInt64(),
-            Length = reader.ReadUInt64()
+            Position = position,
+            Length = length
         };
     }
 }

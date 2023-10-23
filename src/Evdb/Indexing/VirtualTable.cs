@@ -59,14 +59,16 @@ internal sealed class VirtualTable : IDisposable
     public void Flush(IFileSystem fs, FileMetadata metadata)
     {
         using Stream file = fs.OpenFile(metadata.Path, FileMode.Create, FileAccess.Write, FileShare.None);
-        using PhysicalTableBuilder builder = new(file, leaveOpen: true);
 
+        PhysicalTableBuilder builder = new(file);
         SkipList.Iterator iter = _kvs.GetIterator();
 
         for (iter.MoveToFirst(); iter.IsValid; iter.MoveNext())
         {
             builder.Add(iter.Key, iter.Value);
         }
+
+        builder.Complete();
     }
 
     public void Dispose()

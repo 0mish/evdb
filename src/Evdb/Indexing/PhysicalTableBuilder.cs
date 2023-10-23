@@ -1,103 +1,83 @@
 ﻿using Evdb.Collections;
 using Evdb.Indexing.Format;
 using Evdb.IO;
-using System.Text;
 
 namespace Evdb.Indexing;
 
-internal sealed class PhysicalTableBuilder : IDisposable
+internal sealed class PhysicalTableBuilder
 {
-    private bool _disposed;
-
     private byte[]? _firstKey;
     private byte[]? _lastKey;
 
     private readonly BloomFilter _filter;
 
-    private BlockBuilder? _data;
-    private readonly BlockBuilder _index;
-
-    private readonly BinaryWriter _writer;
+    private BlockBuilder _data;
+    private BlockBuilder _index;
 
     public Stream BaseStream { get; }
 
-    public PhysicalTableBuilder(Stream stream, bool leaveOpen)
+    public PhysicalTableBuilder(Stream stream)
     {
         BaseStream = stream;
 
-        _writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen);
+        // FIXME: Make this configurable.
         _filter = new BloomFilter(new byte[4096]);
 
-        _data = null;
-        _index = new BlockBuilder(new MemoryStream(), leaveOpen: false);
+        _data = new BlockBuilder();
+        _index = new BlockBuilder();
     }
 
     public void Add(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value)
     {
+        // TODO(Perf): We can avoid some allocations here.
         _lastKey = key.ToArray();
         _firstKey ??= _lastKey;
 
-        _data ??= new BlockBuilder(new MemoryStream(), leaveOpen: false);
         _data.Add(key, value);
         _filter.Set(key);
 
         // FIXME: Make this configurable.
         if (_data.Length >= 1024 * 16)
         {
-            BlockHandle dhandle = WriteBlock(_data);
+            BlockHandle dhandle = WriteBlock(ref _data);
 
             _index.Add(key, BlockHandle.Encode(dhandle));
-            _data.Dispose();
-            _data = null;
+            _data.Reset();
         }
     }
 
-    private BlockHandle WriteBlock(BlockBuilder block)
+    public void Complete()
     {
-        block.BaseStream.Seek(0, SeekOrigin.Begin);
-        block.BaseStream.CopyTo(BaseStream);
-
-        BlockHandle handle = new((ulong)BaseStream.Position - block.Length, block.Length);
-
-        return handle;
-    }
-
-    private void WriteFooter(BlockHandle indexHandle)
-    {
-        long startPos = _writer.BaseStream.Position;
-
-        _writer.WriteByteArray(_filter.Buffer);
-        _writer.WriteByteArray(_firstKey);
-        _writer.WriteByteArray(_lastKey);
-        _writer.Write(BlockHandle.Encode(indexHandle));
-
-        long endPos = _writer.BaseStream.Position;
-
-        _writer.Write((int)(endPos - startPos));
-    }
-
-    public void Dispose()
-    {
-        if (_disposed)
+        if (!_data.IsEmpty)
         {
-            return;
-        }
-
-        if (_data != null)
-        {
-            BlockHandle dhandle = WriteBlock(_data);
+            BlockHandle dhandle = WriteBlock(ref _data);
 
             _index.Add(_lastKey, BlockHandle.Encode(dhandle));
         }
 
-        BlockHandle ihandle = WriteBlock(_index);
+        BlockHandle ihandle = WriteBlock(ref _index);
 
         WriteFooter(ihandle);
+    }
 
-        _index.Dispose();
-        _data?.Dispose();
-        _writer.Dispose();
+    private BlockHandle WriteBlock(ref BlockBuilder block)
+    {
+        block.Complete();
+        block.CopyTo(BaseStream);
 
-        _disposed = true;
+        return new BlockHandle((ulong)BaseStream.Position - block.Length, block.Length);
+    }
+
+    private void WriteFooter(BlockHandle indexHandle)
+    {
+        BinaryEncoder encoder = new(Array.Empty<byte>());
+
+        encoder.ByteArray(_filter.Span);
+        encoder.ByteArray(_firstKey);
+        encoder.ByteArray(_lastKey);
+        encoder.ByteArrayRaw(BlockHandle.Encode(indexHandle));
+        encoder.UInt32((uint)encoder.Length);
+
+        BaseStream.Write(encoder.Span);
     }
 }

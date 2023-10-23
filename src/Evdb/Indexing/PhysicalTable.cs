@@ -2,7 +2,6 @@
 using Evdb.Indexing.Format;
 using Evdb.IO;
 using System.Diagnostics;
-using System.Text;
 
 namespace Evdb.Indexing;
 
@@ -14,7 +13,6 @@ internal sealed class PhysicalTable : File, IDisposable
     private bool _disposed;
 
     private Stream _file = default!;
-    private BinaryReader _reader = default!;
 
     private readonly BloomFilter? _filter;
     private readonly Block _index;
@@ -38,7 +36,6 @@ internal sealed class PhysicalTable : File, IDisposable
     private void Open()
     {
         _file = _fs.OpenFile(Metadata.Path, FileMode.Open, FileAccess.Read, FileShare.None);
-        _reader = new(_file, Encoding.UTF8, leaveOpen: true);
     }
 
     public bool TryGet(ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
@@ -88,7 +85,6 @@ internal sealed class PhysicalTable : File, IDisposable
             return;
         }
 
-        _reader?.Dispose();
         _file?.Dispose();
 
         _disposed = true;
@@ -141,18 +137,30 @@ internal sealed class PhysicalTable : File, IDisposable
 
     private Footer ReadFooter()
     {
-        _reader.BaseStream.Seek(-sizeof(int), SeekOrigin.End);
+        byte[] footerBuffer = new byte[4];
 
-        int footerLength = _reader.ReadInt32();
+        _file.Seek(-sizeof(int), SeekOrigin.End);
+        _file.Read(footerBuffer);
 
-        _reader.BaseStream.Seek(-sizeof(int) - footerLength, SeekOrigin.End);
+        BinaryDecoder footerDecoder = new(footerBuffer);
+        footerDecoder.UInt32(out uint footerLength);
+
+        byte[] footerFullBuffer = new byte[footerLength];
+
+        _file.Seek(-sizeof(int) - footerLength, SeekOrigin.End);
+        _file.Read(footerFullBuffer);
+
+        BinaryDecoder footerFullDecoder = new(footerFullBuffer);
+        footerFullDecoder.ByteArray(out ArraySegment<byte> filter);
+        footerFullDecoder.ByteArray(out ArraySegment<byte> firstKey);
+        footerFullDecoder.ByteArray(out ArraySegment<byte> lastKey);
 
         return new Footer
         {
-            Filter = _reader.ReadByteArray(),
-            FirstKey = _reader.ReadByteArray(),
-            LastKey = _reader.ReadByteArray(),
-            IndexBlock = BlockHandle.Read(_reader)
+            Filter = filter.ToArray(),
+            FirstKey = firstKey.ToArray(),
+            LastKey = lastKey.ToArray(),
+            IndexBlock = BlockHandle.Read(ref footerFullDecoder)
         };
     }
 

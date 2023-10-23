@@ -5,7 +5,7 @@ internal sealed class BloomFilter
     private readonly byte[] _filter;
 
     // TODO: Hide this behind a Flush or Write method?
-    public ReadOnlySpan<byte> Buffer => _filter;
+    public ReadOnlySpan<byte> Span => _filter;
 
     public BloomFilter(int size)
     {

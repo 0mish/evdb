@@ -1,5 +1,4 @@
 ﻿using Evdb.IO;
-using System.Text;
 
 namespace Evdb.Indexing.Format;
 
@@ -21,25 +20,23 @@ internal sealed class Block
     {
         private bool _disposed;
 
-        private byte[]? _key;
-        private byte[]? _value;
+        private bool _eob;
+        private ArraySegment<byte> _key;
+        private ArraySegment<byte> _value;
+        private BinaryDecoder _decoder;
 
-        private readonly BinaryReader _reader;
-        private readonly MemoryStream _stream;
-
-        public ReadOnlySpan<byte> Key => _key;
-        public ReadOnlySpan<byte> Value => _value;
-        public bool IsValid => !_disposed && _key != null && _value != null;
+        public ReadOnlySpan<byte> Key => _key.AsSpan();
+        public ReadOnlySpan<byte> Value => _value.AsSpan();
+        public bool IsValid => !_disposed && !_eob;
 
         public Iterator(byte[] data)
         {
-            _stream = new MemoryStream(data);
-            _reader = new BinaryReader(_stream, Encoding.UTF8, leaveOpen: true);
+            _decoder = new BinaryDecoder(data);
         }
 
         public void MoveToFirst()
         {
-            _stream.Seek(0, SeekOrigin.Begin);
+            _decoder.Reset();
 
             MoveNext();
         }
@@ -73,28 +70,21 @@ internal sealed class Block
 
         public void MoveNext()
         {
-            if (_stream.Position < _stream.Length)
+            if (!_decoder.IsEmpty)
             {
-                _key = _reader.ReadByteArray();
-                _value = _reader.ReadByteArray();
+                _decoder.ByteArray(out _key);
+                _decoder.ByteArray(out _value);
+
+                _eob = false;
             }
             else
             {
-                _key = null;
-                _value = null;
+                _eob = true;
             }
         }
 
         public void Dispose()
         {
-            if (_disposed)
-            {
-                return;
-            }
-
-            _reader.Dispose();
-            _stream.Dispose();
-
             _disposed = true;
         }
     }

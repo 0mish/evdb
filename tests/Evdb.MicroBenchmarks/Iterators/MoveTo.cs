@@ -25,22 +25,18 @@ public class MoveTo
             _sl.Set(kv.Key, kv.Value);
         }
 
-        using MemoryStream stream = new();
-        using (BlockBuilder builder = new(stream, leaveOpen: false))
+        BlockBuilder builder = new();
+        SkipList.Iterator iter = _sl.GetIterator();
+        ReadOnlySpan<byte> lastKey = default;
+
+        for (iter.MoveToFirst(); iter.IsValid; iter.MoveNext())
         {
-            SkipList.Iterator iter = _sl.GetIterator();
-            ReadOnlySpan<byte> lastKey = default;
-
-            for (iter.MoveToFirst(); iter.IsValid; iter.MoveNext())
-            {
-                builder.Add(iter.Key, iter.Value);
-                lastKey = iter.Key;
-            }
-
-            _key = lastKey.ToArray();
+            builder.Add(iter.Key, iter.Value);
+            lastKey = iter.Key;
         }
 
-        _blk = new Block(stream.ToArray());
+        _key = lastKey.ToArray();
+        _blk = new Block(builder.Span.ToArray());
     }
 
     [Benchmark]

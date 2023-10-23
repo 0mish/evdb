@@ -6,10 +6,4 @@ internal static class BinaryExtensions
     {
         return reader.ReadBytes(reader.Read7BitEncodedInt());
     }
-
-    public static void WriteByteArray(this BinaryWriter writer, ReadOnlySpan<byte> data)
-    {
-        writer.Write7BitEncodedInt(data.Length);
-        writer.Write(data);
-    }
 }
