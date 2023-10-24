@@ -55,7 +55,7 @@ internal sealed class Database : IDisposable
 
         try
         {
-            EpochGC.Acquire();
+            Epoch.Acquire();
 
             lock (_sync)
             {
@@ -77,7 +77,7 @@ internal sealed class Database : IDisposable
         }
         finally
         {
-            EpochGC.Release();
+            Epoch.Release();
         }
     }
 
@@ -92,7 +92,7 @@ internal sealed class Database : IDisposable
 
         try
         {
-            EpochGC.Acquire();
+            Epoch.Acquire();
 
             ManifestState state = _manifest.Current;
             ulong version = _manifest.VersionNumber;
@@ -120,7 +120,7 @@ internal sealed class Database : IDisposable
         }
         finally
         {
-            EpochGC.Release();
+            Epoch.Release();
         }
     }
 
@@ -133,7 +133,7 @@ internal sealed class Database : IDisposable
 
         try
         {
-            EpochGC.Acquire();
+            Epoch.Acquire();
 
             using Iterator iter = new(_manifest.Current);
 
@@ -144,7 +144,7 @@ internal sealed class Database : IDisposable
         }
         finally
         {
-            EpochGC.Release();
+            Epoch.Release();
         }
 
         return true;
@@ -176,7 +176,7 @@ internal sealed class Database : IDisposable
     {
         try
         {
-            EpochGC.Acquire();
+            Epoch.Acquire();
 
             FileMetadata metadata = new(_manifest.Path, FileType.Table, _manifest.NextFileNumber());
 
@@ -192,11 +192,11 @@ internal sealed class Database : IDisposable
             _manifest.Commit(edit);
 
             // Dispose the table once all thread passes this epoch.
-            EpochGC.Defer(vtable.Dispose);
+            Epoch.Defer(vtable.Dispose);
         }
         finally
         {
-            EpochGC.Release();
+            Epoch.Release();
         }
     }
 

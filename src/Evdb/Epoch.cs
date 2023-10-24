@@ -2,7 +2,7 @@
 
 namespace Evdb;
 
-internal static class EpochGC
+internal static class Epoch
 {
     private const int ActionsSize = 16;
     private const int ThreadsSize = 128;
@@ -15,7 +15,7 @@ internal static class EpochGC
 
     public static bool IsProtected => EpochThread.Index != EpochThread.UnassignedIndex;
 
-    static EpochGC()
+    static Epoch()
     {
         _actionsCount = 0;
         _actions = new EpochAction[ActionsSize];
