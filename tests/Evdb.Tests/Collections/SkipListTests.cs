@@ -13,6 +13,12 @@ public class SkipListTests
         _skipList = new SkipList();
     }
 
+    [TearDown]
+    public void TearDown()
+    {
+        _skipList.Dispose();
+    }
+
     [Test]
     public void Set__Single__ValueSet()
     {

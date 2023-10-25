@@ -27,6 +27,12 @@ public class TryGetTrue
         }
     }
 
+    [GlobalCleanup]
+    public void GlobalCleanup()
+    {
+        _sl.Dispose();
+    }
+
     [Benchmark]
     public bool SkipList()
     {

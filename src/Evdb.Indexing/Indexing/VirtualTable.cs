@@ -88,7 +88,7 @@ internal sealed class VirtualTable : IDisposable
             return;
         }
 
-        // _kvs.Dispose()
+        _kvs.Dispose();
         _disposed = true;
     }
 

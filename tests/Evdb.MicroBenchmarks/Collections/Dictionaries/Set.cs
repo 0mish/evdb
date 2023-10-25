@@ -19,7 +19,7 @@ public class Set
     [Benchmark]
     public void SkipList()
     {
-        SkipList sl = new();
+        using SkipList sl = new();
 
         foreach (var kv in _kvs)
         {
