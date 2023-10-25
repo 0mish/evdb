@@ -15,7 +15,7 @@ internal class PhysicalTableTests
 
         foreach (KeyValuePair<byte[], byte[]> kv in kvs)
         {
-            vtable.TrySet(kv.Key, kv.Value);
+            vtable.Set(kv.Key, kv.Value);
         }
 
         FileSystem fs = new();

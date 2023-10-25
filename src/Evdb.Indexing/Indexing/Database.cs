@@ -39,11 +39,11 @@ public sealed class Database : IDisposable
         _table = NewTable();
     }
 
-    public bool TrySet(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value)
+    public Status Set(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value)
     {
         if (_disposed)
         {
-            return false;
+            return Status.Disposed;
         }
 
         try
@@ -52,7 +52,7 @@ public sealed class Database : IDisposable
 
             lock (_sync)
             {
-                while (!_table.TrySet(key, value))
+                while (!_table.Set(key, value).IsSuccess)
                 {
                     VirtualTable oldTable = _table;
 
@@ -61,7 +61,7 @@ public sealed class Database : IDisposable
                 }
             }
 
-            return true;
+            return Status.Success;
         }
         finally
         {
@@ -69,13 +69,13 @@ public sealed class Database : IDisposable
         }
     }
 
-    public bool TryGet(ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
+    public Status Get(ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
     {
+        value = default;
+
         if (_disposed)
         {
-            value = default;
-
-            return false;
+            return Status.Disposed;
         }
 
         try
@@ -86,23 +86,25 @@ public sealed class Database : IDisposable
 
             foreach (VirtualTable table in state.VirtualTables)
             {
-                if (table.TryGet(key, out value))
+                Status status = table.Get(key, out value);
+
+                if (status.IsFound || !status.IsSuccess)
                 {
-                    return true;
+                    return status;
                 }
             }
 
             foreach (PhysicalTable table in state.PhysicalTables)
             {
-                if (table.TryGet(key, out value))
+                Status status = table.Get(key, out value);
+
+                if (status.IsFound || !status.IsSuccess)
                 {
-                    return true;
+                    return status;
                 }
             }
 
-            value = default;
-
-            return false;
+            return Status.NotFound;
         }
         finally
         {
@@ -110,11 +112,11 @@ public sealed class Database : IDisposable
         }
     }
 
-    public bool TryGetRange(ReadOnlySpan<byte> startKey, ReadOnlySpan<byte> endKey, KeyValueAction action)
+    public Status GetRange(ReadOnlySpan<byte> startKey, ReadOnlySpan<byte> endKey, KeyValueAction action)
     {
         if (_disposed)
         {
-            return false;
+            return Status.Disposed;
         }
 
         try
@@ -133,7 +135,7 @@ public sealed class Database : IDisposable
             Epoch.Release();
         }
 
-        return true;
+        return Status.Success;
     }
 
     public Iterator GetIterator()

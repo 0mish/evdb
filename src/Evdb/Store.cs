@@ -39,7 +39,7 @@ public sealed class Store : IDisposable
 
         ReadOnlySpan<byte> key = Encoding.UTF8.GetBytes(name);
 
-        return _index.TryGet(key, out _);
+        return _index.Get(key, out _).IsSuccess;
     }
 
     public void Dispose()

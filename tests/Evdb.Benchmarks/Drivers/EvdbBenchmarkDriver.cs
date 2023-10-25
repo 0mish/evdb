@@ -30,12 +30,12 @@ public readonly struct EvdbBenchmarkDriver : IBenchmarkDriver, IDisposable
 
     public bool TryGet(ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
     {
-        return _database.TryGet(key, out value);
+        return _database.Get(key, out value).IsFound;
     }
 
     public bool TrySet(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value)
     {
-        return _database.TrySet(key, value);
+        return _database.Set(key, value).IsFound;
     }
 
     public void WaitCompaction()

@@ -41,7 +41,7 @@ public sealed class RecordStream
             ReadOnlySpan<byte> key = RecordKey.Encode(_key, _count);
             ReadOnlySpan<byte> value = Record.Encode(record.Type, record.Data);
 
-            if (!_db.TrySet(key, value))
+            if (!_db.Set(key, value).IsSuccess)
             {
                 throw new Exception("Failed to append Record.");
             }

@@ -38,22 +38,25 @@ internal sealed class PhysicalTable : File, IDisposable
         _file = _fs.OpenFile(Metadata.Path, FileMode.Open, FileAccess.Read, FileShare.None);
     }
 
-    public bool TryGet(ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
+    public Status Get(ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
     {
+        value = default;
+
+        if (_disposed)
+        {
+            return Status.Disposed;
+        }
+
         // If not in range of keys in the table, we exit early.
         if (key.SequenceCompareTo(_footer.FirstKey) < 0 || key.SequenceCompareTo(_footer.LastKey) > 0)
         {
-            value = default;
-
-            return false;
+            return Status.NotFound;
         }
 
         // If not in filter, we exit early.
         if (_filter != null && !_filter.Test(key))
         {
-            value = default;
-
-            return false;
+            return Status.NotFound;
         }
 
         // Otherwise we perform the look up in the file.
@@ -65,12 +68,10 @@ internal sealed class PhysicalTable : File, IDisposable
         {
             value = iter.Value;
 
-            return true;
+            return Status.Found;
         }
 
-        value = default;
-
-        return false;
+        return Status.NotFound;
     }
 
     public Iterator GetIterator()

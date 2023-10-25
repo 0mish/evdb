@@ -24,11 +24,16 @@ internal sealed class VirtualTable : IDisposable
         _kvs = new SkipList();
     }
 
-    public bool TrySet(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value)
+    public Status Set(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value)
     {
-        if (_disposed || Size > Capacity)
+        if (_disposed)
         {
-            return false;
+            return Status.Disposed;
+        }
+
+        if (Size > Capacity)
+        {
+            return Status.Filled;
         }
 
         _log?.LogSet(key, value);
@@ -36,19 +41,24 @@ internal sealed class VirtualTable : IDisposable
 
         Size += key.Length + value.Length;
 
-        return true;
+        return Status.Success;
     }
 
-    public bool TryGet(ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
+    public Status Get(ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
     {
         if (_disposed)
         {
             value = default;
 
-            return false;
+            return Status.Disposed;
         }
 
-        return _kvs.TryGet(key, out value);
+        if (_kvs.TryGet(key, out value))
+        {
+            return Status.Found;
+        }
+
+        return Status.NotFound;
     }
 
     public Iterator GetIterator()
