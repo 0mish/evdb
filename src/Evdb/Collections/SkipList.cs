@@ -63,42 +63,6 @@ internal sealed class SkipList
         return false;
     }
 
-    public bool TryGetLast(out ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
-    {
-        Node? node = FindLast();
-
-        if (node != null)
-        {
-            key = node.Key;
-            value = node.Value;
-
-            return false;
-        }
-
-        key = default;
-        value = default;
-
-        return false;
-    }
-
-    public bool TryGetFirst(out ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
-    {
-        Node? node = FindFirst();
-
-        if (node != null)
-        {
-            key = node.Key;
-            value = node.Value;
-
-            return false;
-        }
-
-        key = default;
-        value = default;
-
-        return false;
-    }
-
     public Iterator GetIterator()
     {
         return new Iterator(this);
@@ -107,24 +71,6 @@ internal sealed class SkipList
     private Node? FindFirst()
     {
         return _head.Next[0];
-    }
-
-    private Node? FindLast()
-    {
-        Node? node = _head;
-
-        for (int i = _height; i >= 0; i--)
-        {
-            Node? next = node.Next[i];
-
-            while (next != null)
-            {
-                node = next;
-                next = next.Next[i];
-            }
-        }
-
-        return node;
     }
 
     private Node? FindGreaterOrEqual(ReadOnlySpan<byte> key, Node?[]? prevs = null)
