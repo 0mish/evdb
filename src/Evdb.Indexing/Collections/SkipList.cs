@@ -1,59 +1,120 @@
-﻿namespace Evdb.Collections;
+﻿using System.Runtime.CompilerServices;
+
+namespace Evdb.Collections;
 
 internal sealed class SkipList
 {
+    [ThreadStatic]
+    private static (Node?, Node?)[]? s_slice;
+    private static readonly int[] s_probs;
+
     private const int MaxHeight = 13;
 
-    private int _height;
-    private Node _head;
-    private readonly Random _rand;
+    static SkipList()
+    {
+        // Pre-compute the probability ranges for p = 1/e so that we can use a single random number to determine the
+        // tower height.
+        //
+        // 1/e is the optimal p value to minimize the upper bound for searching in the average case when n is infinite.
+        double p = 1.0d;
 
-    public int Count { get; private set; }
+        s_probs = new int[MaxHeight];
+
+        for (int i = 0; i < MaxHeight; i++)
+        {
+            s_probs[i] = (int)(int.MaxValue * p);
+
+            p *= 1.0d / Math.E;
+        }
+    }
+
+    private int _count;
+    private int _height;
+    private readonly Node _head;
+
+    public int Count => _count;
 
     public SkipList()
     {
         _height = 0;
         _head = new Node(default!, default!, MaxHeight);
-        _rand = new Random(0);
     }
 
     public void Set(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value)
     {
-        Node[] prevs = new Node[MaxHeight];
+        (Node?, Node?)[] slice;
+
+        if (s_slice == null)
+        {
+            slice = s_slice = new (Node?, Node?)[MaxHeight];
+        }
+        else
+        {
+            slice = s_slice;
+
+            Array.Clear(slice);
+        }
+
+        Slice(key, slice, out bool found);
+
+        // If the key was already added, this becomes a no op.
+        if (found)
+        {
+            return;
+        }
 
         int height = RandomHeight();
+        int currHeight = _height;
 
-        FindGreaterOrEqual(key, prevs);
-
-        if (height > _height)
+        // If height increased we ensure that we do insert a lower one.
+        while (currHeight < height && Interlocked.CompareExchange(ref _height, height, currHeight) != currHeight)
         {
-            for (int i = _height; i < height; i++)
-            {
-                prevs[i] = _head;
-            }
-
-            _height = height;
+            currHeight = _height;
         }
 
         Node node = new(key.ToArray(), value.ToArray(), height);
 
-        for (int i = 0; i < height; i++)
+        // Insert node starting from lower level to higher level to ensure the invariant that lower level have nodes
+        // closer (in terms of key values) to each other.
+        for (int level = 0; level < height; level++)
         {
-            node.Next[i] = prevs[i].Next[i];
-            prevs[i].Next[i] = node;
+            (Node? prev, Node? next) = slice[level];
+
+            // If `prev` is null, it means `node` increased the height of the skip list therefore the slice is `_head`.
+            prev ??= _head;
+
+            while (true)
+            {
+                node.Next[level] = next;
+
+                // If the previous node was still pointing to the next node we can insert, otherwise it means another
+                // thread inserted something between `prev` & `next`.
+                if (Interlocked.CompareExchange(ref prev.Next[level], node, next) == next)
+                {
+                    break;
+                }
+
+                // Re-compute new `prev` & `next` for this level.
+                (prev, next) = SliceLevel(key, level, prev, out found);
+
+                // If the key got inserted by another thread mean while, this becomes a no op.
+                if (found)
+                {
+                    return;
+                }
+            }
         }
 
-        Count++;
+        Interlocked.Increment(ref _count);
     }
 
     public bool TryGet(ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
     {
-        Node? node = FindGreaterOrEqual(key);
+        Node? node = FindGreaterOrEqual(key, out bool found);
 
-        // TODO: optimize - Avoid a second sequence compare.
-        if (node != null && key.SequenceCompareTo(node.Key) == 0)
+        if (found)
         {
-            value = node.Value;
+            value = node!.Value;
 
             return true;
         }
@@ -73,40 +134,77 @@ internal sealed class SkipList
         return _head.Next[0];
     }
 
-    private Node? FindGreaterOrEqual(ReadOnlySpan<byte> key, Node?[]? prevs = null)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private Node? FindGreaterOrEqual(ReadOnlySpan<byte> key, out bool found)
     {
-        Node node = _head;
+        found = false;
+
+        Node prev = _head;
         Node? next = null;
 
-        for (int i = _height - 1; i >= 0; i--)
+        for (int level = _height - 1; level >= 0; level--)
         {
-            next = node.Next[i];
-
-            while (next != null && key.SequenceCompareTo(next.Key) > 0)
-            {
-                node = next;
-                next = next.Next[i];
-            }
-
-            if (prevs != null)
-            {
-                prevs[i] = node;
-            }
+            (prev, next) = SliceLevel(key, level, prev, out found);
         }
 
         return next;
     }
 
-    private int RandomHeight()
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void Slice(ReadOnlySpan<byte> key, (Node?, Node?)[] slice, out bool found)
     {
-        int result = 1;
+        found = false;
 
-        while (result < MaxHeight && _rand.Next() % 2 == 0)
+        Node prev = _head;
+
+        for (int level = _height - 1; level >= 0; level--)
         {
-            result++;
+            (prev, Node? next) = SliceLevel(key, level, prev, out found);
+
+            slice[level] = (prev, next);
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static (Node Previous, Node? Next) SliceLevel(ReadOnlySpan<byte> key, int level, Node start, out bool found)
+    {
+        found = false;
+
+        Node prev = start;
+        Node? next = prev.Next[level];
+
+        while (next != null)
+        {
+            int cmp = next.Key.SequenceCompareTo(key);
+
+            if (cmp > 0)
+            {
+                break;
+            }
+            else if (cmp == 0)
+            {
+                found = true;
+                break;
+            }
+
+            prev = next;
+            next = next.Next[level];
         }
 
-        return result;
+        return (prev, next);
+    }
+
+    private static int RandomHeight()
+    {
+        int height = 1;
+        int value = Random.Shared.Next();
+
+        while (height < MaxHeight && value < s_probs[height])
+        {
+            height++;
+        }
+
+        return height;
     }
 
     internal class Node
@@ -116,13 +214,13 @@ internal sealed class SkipList
 
         public ReadOnlySpan<byte> Key => _key;
         public ReadOnlySpan<byte> Value => _value;
-        public Node[] Next { get; }
+        public Node?[] Next { get; }
 
         public Node(byte[] key, byte[] value, int height)
         {
             _key = key;
             _value = value;
-            Next = new Node[height + 1];
+            Next = new Node?[height];
         }
     }
 
@@ -147,7 +245,7 @@ internal sealed class SkipList
 
         public void MoveTo(ReadOnlySpan<byte> key)
         {
-            _node = _sl.FindGreaterOrEqual(key);
+            _node = _sl.FindGreaterOrEqual(key, out _);
         }
 
         public void MoveNext()

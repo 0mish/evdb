@@ -10,7 +10,7 @@ internal class PhysicalTableTests
     [TestCase(16 * 1024)]
     public void PhysicalTable__Iterator__ElementPresent(int n)
     {
-        Dictionary<byte[], byte[]> kvs = Generator.KeyValues(n, keySize: 4, valueSize: 1);
+        Dictionary<byte[], byte[]> kvs = Generator.RandomKeyValues(n, keySize: 4, valueSize: 1);
         VirtualTable vtable = new(null, long.MaxValue);
 
         foreach (KeyValuePair<byte[], byte[]> kv in kvs)
