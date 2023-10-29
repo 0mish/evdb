@@ -31,6 +31,50 @@ public class SkipListTests
     }
 
     [Test]
+    public void Set__Multiple__ItemsOrdered()
+    {
+        Dictionary<byte[], byte[]> kvs = Generator.RandomKeyValues(128);
+
+        foreach (KeyValuePair<byte[], byte[]> kv in kvs)
+        {
+            _skipList.Set(kv.Key, kv.Value);
+        }
+
+        AssertSequential(kvs);
+    }
+
+    [Test]
+    public void Set__Concurrent_Multiple__ItemsOrdered()
+    {
+        const int PerCore = 128;
+
+        Dictionary<byte[], byte[]> kvs = Generator.RandomKeyValues(PerCore * Environment.ProcessorCount);
+        List<List<KeyValuePair<byte[], byte[]>>> pkvs = kvs
+            .Select((k, i) => (k, i))
+            .GroupBy(ki => ki.i / PerCore, ki => ki.k)
+            .Select(g => g.ToList())
+            .ToList();
+        Task[] tasks = new Task[Environment.ProcessorCount];
+
+        for (int i = 0; i < tasks.Length; i++)
+        {
+            List<KeyValuePair<byte[], byte[]>> ckvs = pkvs[i];
+
+            tasks[i] = Task.Run(() =>
+            {
+                foreach (KeyValuePair<byte[], byte[]> kv in ckvs)
+                {
+                    _skipList.Set(kv.Key, kv.Value);
+                }
+            });
+        }
+
+        Task.WaitAll(tasks);
+
+        AssertSequential(kvs);
+    }
+
+    [Test]
     public void TryGet__NotExist__ReturnsFalse()
     {
         bool result = _skipList.TryGet("a"u8, out ReadOnlySpan<byte> value);
@@ -53,21 +97,11 @@ public class SkipListTests
     [Test]
     public void TryGet__Multiple__ReturnsTrue()
     {
-        List<KeyValuePair<byte[], byte[]>> kvs = new();
+        Dictionary<byte[], byte[]> kvs = Generator.RandomKeyValues(128);
 
-        Random rand = new(0);
-
-        for (int i = 0; i < 128; i++)
+        foreach (KeyValuePair<byte[], byte[]> kv in kvs)
         {
-            byte[] key = new byte[16];
-            byte[] value = new byte[16];
-
-            rand.NextBytes(key);
-            rand.NextBytes(value);
-
-            kvs.Add(new(key, value));
-
-            _skipList.Set(key, value);
+            _skipList.Set(kv.Key, kv.Value);
         }
 
         foreach (KeyValuePair<byte[], byte[]> kv in kvs)
@@ -77,15 +111,26 @@ public class SkipListTests
             Assert.That(found, Is.True);
             Assert.That(value.ToArray(), Is.EqualTo(kv.Value));
         }
+    }
 
+    private void AssertSequential(Dictionary<byte[], byte[]> expectation)
+    {
         int count = 0;
+        byte[]? prevKey = null;
+        byte[] currKey;
         SkipList.Iterator iter = _skipList.GetIterator();
 
         for (iter.MoveToFirst(); iter.IsValid; iter.MoveNext())
         {
+            currKey = iter.Key.ToArray();
+
+            Assert.That(expectation[currKey], Is.EqualTo(iter.Value.ToArray()));
+            Assert.That(prevKey.AsSpan().SequenceCompareTo(currKey), Is.LessThan(0));
+
+            prevKey = currKey;
             count++;
         }
 
-        Assert.That(count, Is.EqualTo(128));
+        Assert.That(count, Is.EqualTo(expectation.Count));
     }
 }

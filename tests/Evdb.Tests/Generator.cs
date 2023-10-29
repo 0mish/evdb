@@ -31,7 +31,7 @@ public class ByteArrayComparer : IEqualityComparer<byte[]>, IComparer<byte[]>
 
 public static class Generator
 {
-    public static Dictionary<byte[], byte[]> KeyValues(int count, int keySize = 12, int valueSize = 64)
+    public static Dictionary<byte[], byte[]> RandomKeyValues(int count, int keySize = 12, int valueSize = 64)
     {
         Random random = new(Seed: 0);
         Dictionary<byte[], byte[]> kvs = new(new ByteArrayComparer());
