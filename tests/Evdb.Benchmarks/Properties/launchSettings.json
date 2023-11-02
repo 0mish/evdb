@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Evdb.Benchmarks": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "DOTNET_JitDisasmmm": "Evdb.Collections.BloomFilter:*"
+      }
+    }
+  }
+}

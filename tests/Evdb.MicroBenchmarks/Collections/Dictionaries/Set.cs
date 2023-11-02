@@ -1,7 +1,7 @@
 ﻿using BenchmarkDotNet.Attributes;
 using Evdb.Collections;
 
-namespace Evdb.MicroBenchmarks.Collections;
+namespace Evdb.MicroBenchmarks.Collections.Dictionaries;
 
 public class Set
 {
