@@ -1,5 +1,4 @@
 ﻿using Evdb.Indexing.Format;
-using Evdb.IO;
 
 namespace Evdb.Indexing;
 
@@ -17,7 +16,6 @@ internal sealed class Database : IDisposable
 
     private readonly Manifest _manifest;
     private readonly DatabaseOptions _options;
-    private readonly IFileSystem _fs;
     private readonly IBlockCache _blockCache;
 
     public bool IsCompacting => _compactionQueue.Count > 0;
@@ -25,19 +23,14 @@ internal sealed class Database : IDisposable
     public Database(DatabaseOptions options)
     {
         _options = options;
-        _fs = options.FileSystem;
 
         _sync = new object();
 
-        // TODO:
-        //
-        // Re-consider the API design. We are performing IO in the constructor, which may not be expected? Perhaps
+        // TODO: Reconsider the API design. We are performing IO in the constructor, which may not be expected? Perhaps
         // people would like to control when IO occurs.
-        _manifest = new Manifest(_fs, options.Path);
+        _manifest = new Manifest(options.FileSystem, options.Path);
 
-        // TODO:
-        //
-        // Make the number of compaction thread configurable.
+        // TODO: Make the number of compaction thread configurable.
         _compactionQueue = new CompactionQueue();
         _compactionThread = new CompactionThread(_compactionQueue);
 
@@ -159,7 +152,7 @@ internal sealed class Database : IDisposable
     private VirtualTable NewTable()
     {
         FileMetadata metadata = new(_manifest.Path, FileType.Log, _manifest.NextFileNumber());
-        PhysicalLog log = new(_fs, metadata);
+        PhysicalLog log = new(_options.FileSystem, metadata);
         VirtualTable table = new(log, _options.VirtualTableSize);
 
         ManifestEdit edit = new()
@@ -180,9 +173,9 @@ internal sealed class Database : IDisposable
 
             FileMetadata metadata = new(_manifest.Path, FileType.Table, _manifest.NextFileNumber());
 
-            vtable.Flush(_fs, metadata);
+            vtable.Flush(_options.FileSystem, metadata);
 
-            PhysicalTable ptable = new(_fs, metadata, _blockCache);
+            PhysicalTable ptable = new(_options.FileSystem, metadata, _blockCache);
             ManifestEdit edit = new()
             {
                 Registered = new object[] { ptable },
@@ -192,6 +185,10 @@ internal sealed class Database : IDisposable
             _manifest.Commit(edit);
 
             // Dispose the table once all thread passes this epoch.
+            //
+            // TODO(Optimize):
+            // Reconsider vanila EBR for table compaction since a compaction can take a while, we might be holding a
+            // lot of retired resources for a while as well.
             Epoch.Defer(vtable.Dispose);
         }
         finally
