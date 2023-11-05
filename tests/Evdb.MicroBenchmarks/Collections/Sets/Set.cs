@@ -26,4 +26,15 @@ public class Set
             bloom.Set(kv.Key);
         }
     }
+
+    [Benchmark]
+    public void BlockedBloomFilter()
+    {
+        BlockedBloomFilter bloom = new(new byte[4096]);
+
+        foreach (KeyValuePair<byte[], byte[]> kv in _kvs)
+        {
+            bloom.Set(kv.Key);
+        }
+    }
 }
