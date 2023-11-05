@@ -3,7 +3,7 @@ using Evdb.Collections;
 
 namespace Evdb.MicroBenchmarks.Collections.Sets;
 
-public class Test
+public class TestTrue
 {
     private List<KeyValuePair<byte[], byte[]>> _kvs = default!;
     private BloomFilter _bloom = default!;
