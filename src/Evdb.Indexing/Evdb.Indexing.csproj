@@ -1,20 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <OutputType>Library</OutputType>
         <TargetFramework>net7.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <RootNamespace>Evdb</RootNamespace>
     </PropertyGroup>
 
     <ItemGroup>
         <InternalsVisibleTo Include="Evdb.Tests" />
         <InternalsVisibleTo Include="Evdb.Benchmarks" />
         <InternalsVisibleTo Include="Evdb.MicroBenchmarks" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <ProjectReference Include="..\Evdb.Indexing\Evdb.Indexing.csproj" />
     </ItemGroup>
 
 </Project>

@@ -2,9 +2,8 @@
 
 namespace Evdb.Tests.Indexing;
 
-public class FileIdTests
+internal class FileIdTests
 {
-#if false
     [TestCase("", FileType.Manifest, 1ul, "000001.manifest")]
     [TestCase("test", FileType.Manifest, 1ul, "test\\000001.manifest")]
     [TestCase("test", FileType.Table, 1ul, "test\\000001.olog")]
@@ -55,5 +54,4 @@ public class FileIdTests
             Assert.That(fileId.Number, Is.EqualTo(number));
         });
     }
-#endif
 }

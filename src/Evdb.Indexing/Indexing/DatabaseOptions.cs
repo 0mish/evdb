@@ -2,7 +2,7 @@
 
 namespace Evdb.Indexing;
 
-internal sealed class DatabaseOptions
+public sealed class DatabaseOptions
 {
     public ulong DataBlockSize { get; set; } = 1024 * 4;
     public ulong BloomBlockSize { get; set; } = 1024 * 4;

@@ -11,8 +11,8 @@ public class Murmur1Tests
 
         Random.Shared.NextBytes(data);
 
-        int v1 = Murmur1.Compute(data).Value;
-        int v2 = Murmur1.Compute(data).Value;
+        uint v1 = Murmur1.Compute(data).Value;
+        uint v2 = Murmur1.Compute(data).Value;
 
         Assert.That(v1, Is.EqualTo(v2));
     }

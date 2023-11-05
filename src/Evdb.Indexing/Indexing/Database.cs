@@ -2,9 +2,9 @@
 
 namespace Evdb.Indexing;
 
-internal delegate void KeyValueAction(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value);
+public delegate void KeyValueAction(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value);
 
-internal sealed class Database : IDisposable
+public sealed class Database : IDisposable
 {
     private bool _disposed;
     private VirtualTable _table;
