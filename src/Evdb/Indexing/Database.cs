@@ -64,6 +64,11 @@ internal sealed class Database : IDisposable
                 }
 
                 // FIXME: Advance VersionNumber after key-value inserted.
+                //
+                // This should not be needed right now since key-values are expected to be inserted once and never
+                // updated afterwards (deletion is an update). We also do not perform concurrent writes. If we did
+                // we would have to ensure the correct order of when writes are published to the readers to ensure
+                // isolation.
             }
 
             return true;
