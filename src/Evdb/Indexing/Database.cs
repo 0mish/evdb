@@ -173,7 +173,7 @@ internal sealed class Database : IDisposable
 
             FileMetadata metadata = new(_manifest.Path, FileType.Table, _manifest.NextFileNumber());
 
-            vtable.Flush(_options.FileSystem, metadata);
+            vtable.Flush(_options.FileSystem, metadata, _options.DataBlockSize, _options.BloomBlockSize);
 
             PhysicalTable ptable = new(_options.FileSystem, metadata, _blockCache);
             ManifestEdit edit = new()

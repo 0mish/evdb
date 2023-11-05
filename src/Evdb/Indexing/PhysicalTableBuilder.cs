@@ -9,6 +9,8 @@ internal sealed class PhysicalTableBuilder
     private byte[]? _firstKey;
     private byte[]? _lastKey;
 
+    private readonly ulong _dataBlockSize;
+    private readonly ulong _bloomBlockSize;
     private readonly BloomFilter _filter;
 
     private BlockBuilder _data;
@@ -16,12 +18,15 @@ internal sealed class PhysicalTableBuilder
 
     public Stream BaseStream { get; }
 
-    public PhysicalTableBuilder(Stream stream)
+    public PhysicalTableBuilder(Stream stream, ulong dataBlockSize, ulong bloomBlockSize)
     {
         BaseStream = stream;
 
+        _dataBlockSize = dataBlockSize;
+        _bloomBlockSize = bloomBlockSize;
+
         // FIXME: Make this configurable.
-        _filter = new BloomFilter(new byte[4096]);
+        _filter = new BloomFilter(new byte[_bloomBlockSize]);
 
         _data = new BlockBuilder();
         _index = new BlockBuilder();
@@ -37,7 +42,7 @@ internal sealed class PhysicalTableBuilder
         _filter.Set(key);
 
         // FIXME: Make this configurable.
-        if (_data.Length >= 1024 * 16)
+        if (_data.Length >= _dataBlockSize)
         {
             BlockHandle dhandle = WriteBlock(ref _data);
 

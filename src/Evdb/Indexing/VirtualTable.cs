@@ -56,11 +56,11 @@ internal sealed class VirtualTable : IDisposable
         return new Iterator(_kvs.GetIterator());
     }
 
-    public void Flush(IFileSystem fs, FileMetadata metadata)
+    public void Flush(IFileSystem fs, FileMetadata metadata, ulong dataBlockSize, ulong bloomBlockSize)
     {
         using Stream file = fs.OpenFile(metadata.Path, FileMode.Create, FileAccess.Write, FileShare.None);
 
-        PhysicalTableBuilder builder = new(file);
+        PhysicalTableBuilder builder = new(file, dataBlockSize, bloomBlockSize);
         SkipList.Iterator iter = _kvs.GetIterator();
 
         for (iter.MoveToFirst(); iter.IsValid; iter.MoveNext())

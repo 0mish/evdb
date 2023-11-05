@@ -21,7 +21,7 @@ internal class PhysicalTableTests
         FileSystem fs = new();
         FileMetadata metadata = new(string.Empty, FileType.Table, 0);
 
-        vtable.Flush(fs, metadata);
+        vtable.Flush(fs, metadata, dataBlockSize: 1024 * 16, bloomBlockSize: 1024 * 4);
 
         PhysicalTable ptable = new(fs, metadata, new WeakReferenceBlockCache());
         PhysicalTable.Iterator iter = ptable.GetIterator();
