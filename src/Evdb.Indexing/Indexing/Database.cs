@@ -9,7 +9,7 @@ public sealed class Database : IDisposable
     private bool _disposed;
     private VirtualTable _table;
 
-    private readonly object _sync;
+    private int _newTable;
 
     private readonly CompactionQueue _compactionQueue;
     private readonly CompactionThread _compactionThread;
@@ -23,8 +23,6 @@ public sealed class Database : IDisposable
     public Database(DatabaseOptions options)
     {
         _options = options;
-
-        _sync = new object();
 
         // TODO: Reconsider the API design. We are performing IO in the constructor, which may not be expected? Perhaps
         // people would like to control when IO occurs.
@@ -50,14 +48,20 @@ public sealed class Database : IDisposable
         {
             Epoch.Acquire();
 
-            lock (_sync)
+            while (!_table.Set(key, value).IsSuccess)
             {
-                while (!_table.Set(key, value).IsSuccess)
+                if (Interlocked.Exchange(ref _newTable, 1) == 1)
+                {
+                    Thread.Yield();
+                }
+                else
                 {
                     VirtualTable oldTable = _table;
 
                     _table = NewTable();
                     _compactionQueue.Enqueue(new CompactionJob(oldTable, CompactTable));
+
+                    Volatile.Write(ref _newTable, 0);
                 }
             }
 
