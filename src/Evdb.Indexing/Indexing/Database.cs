@@ -52,23 +52,13 @@ public sealed class Database : IDisposable
 
             lock (_sync)
             {
-                ulong version = _manifest.VersionNumber;
-                ReadOnlySpan<byte> ikey = IndexKey.Encode(key, version);
-
-                while (!_table.TrySet(ikey, value))
+                while (!_table.TrySet(key, value))
                 {
                     VirtualTable oldTable = _table;
 
                     _table = NewTable();
                     _compactionQueue.Enqueue(new CompactionJob(oldTable, CompactTable));
                 }
-
-                // FIXME: Advance VersionNumber after key-value inserted.
-                //
-                // This should not be needed right now since key-values are expected to be inserted once and never
-                // updated afterwards (deletion is an update). We also do not perform concurrent writes. If we did
-                // we would have to ensure the correct order of when writes are published to the readers to ensure
-                // isolation.
             }
 
             return true;
@@ -93,12 +83,10 @@ public sealed class Database : IDisposable
             Epoch.Acquire();
 
             ManifestState state = _manifest.Current;
-            ulong version = _manifest.VersionNumber;
-            ReadOnlySpan<byte> ikey = IndexKey.Encode(key, version);
 
             foreach (VirtualTable table in state.VirtualTables)
             {
-                if (table.TryGet(ikey, out value))
+                if (table.TryGet(key, out value))
                 {
                     return true;
                 }
@@ -106,7 +94,7 @@ public sealed class Database : IDisposable
 
             foreach (PhysicalTable table in state.PhysicalTables)
             {
-                if (table.TryGet(ikey, out value))
+                if (table.TryGet(key, out value))
                 {
                     return true;
                 }
