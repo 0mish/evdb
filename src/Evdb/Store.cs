@@ -17,8 +17,9 @@ public sealed class Store : IDisposable
             Path = path
         };
 
-        _index = new Database(options);
         _streams = new ConcurrentDictionary<string, RecordStream>();
+        _index = new Database(options);
+        _index.Open();
     }
 
     public RecordStream All()

@@ -12,11 +12,10 @@ internal sealed class PhysicalTable : File, IDisposable
 
     private bool _disposed;
 
-    private FileStream _file = default!;
-
-    private readonly BloomFilter? _filter;
-    private readonly Block _index;
-    private readonly Footer _footer;
+    private FileStream? _file;
+    private BloomFilter? _filter;
+    private Block? _index;
+    private Footer _footer;
 
     private readonly IFileSystem _fs;
     private readonly IBlockCache _blockCache;
@@ -25,17 +24,15 @@ internal sealed class PhysicalTable : File, IDisposable
     {
         _fs = fs;
         _blockCache = blockCache;
+    }
 
-        Open();
+    public void Open()
+    {
+        _file = _fs.OpenFile(Metadata.Path, FileMode.Open, FileAccess.Read, FileShare.None);
 
         _footer = ReadFooter();
         _filter = ReadFilter();
         _index = ReadIndex();
-    }
-
-    private void Open()
-    {
-        _file = _fs.OpenFile(Metadata.Path, FileMode.Open, FileAccess.Read, FileShare.None);
     }
 
     public Status Get(ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
@@ -140,7 +137,7 @@ internal sealed class PhysicalTable : File, IDisposable
     {
         byte[] footerBuffer = new byte[4];
 
-        _file.Seek(-sizeof(int), SeekOrigin.End);
+        _file!.Seek(-sizeof(int), SeekOrigin.End);
         _file.Read(footerBuffer);
 
         BinaryDecoder footerDecoder = new(footerBuffer);
@@ -188,7 +185,7 @@ internal sealed class PhysicalTable : File, IDisposable
         public Iterator(PhysicalTable table)
         {
             _table = table;
-            _indexIterator = table._index.GetIterator();
+            _indexIterator = table._index!.GetIterator(); // FIXME: This can throw if we do not open the table.
         }
 
         public void MoveToFirst()

@@ -7,7 +7,7 @@ public delegate void KeyValueAction(ReadOnlySpan<byte> key, ReadOnlySpan<byte> v
 public sealed class Database : IDisposable
 {
     private bool _disposed;
-    private VirtualTable _table;
+    private VirtualTable? _table;
 
     private readonly object _sync;
 
@@ -25,18 +25,21 @@ public sealed class Database : IDisposable
         _options = options;
 
         _sync = new object();
-
-        // TODO: Reconsider the API design. We are performing IO in the constructor, which may not be expected? Perhaps
-        // people would like to control when IO occurs.
-        _manifest = new Manifest(options.FileSystem, options.Path);
+        _blockCache = new WeakReferenceBlockCache();
+        _manifest = new Manifest(options.FileSystem, options.Path, _blockCache);
 
         // TODO: Make the number of compaction thread configurable.
         _compactionQueue = new CompactionQueue();
         _compactionThread = new CompactionThread(_compactionQueue);
+    }
 
-        _blockCache = new WeakReferenceBlockCache();
+    public Status Open()
+    {
+        _manifest.Open();
 
         _table = NewTable();
+
+        return Status.Success;
     }
 
     public Status Set(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value)
@@ -44,6 +47,11 @@ public sealed class Database : IDisposable
         if (_disposed)
         {
             return Status.Disposed;
+        }
+
+        if (_table == null)
+        {
+            return Status.Closed;
         }
 
         try
@@ -150,10 +158,16 @@ public sealed class Database : IDisposable
         PhysicalLog log = new(_options.FileSystem, metadata);
         VirtualTable table = new(log, _options.VirtualTableSize);
 
-        ManifestEdit edit = new()
-        {
-            Registered = new object[] { table, log }
-        };
+        log.Open();
+
+        ManifestEdit edit = new(
+            plogs: new ListEdit<PhysicalLog>(
+                registered: new[] { log }
+            ),
+            vtables: new ListEdit<VirtualTable>(
+                registered: new[] { table }
+            )
+        );
 
         _manifest.Commit(edit);
 
@@ -171,11 +185,17 @@ public sealed class Database : IDisposable
             vtable.Flush(_options.FileSystem, metadata, _options.DataBlockSize, _options.BloomBlockSize);
 
             PhysicalTable ptable = new(_options.FileSystem, metadata, _blockCache);
-            ManifestEdit edit = new()
-            {
-                Registered = new object[] { ptable },
-                Unregistered = new object[] { vtable }
-            };
+
+            ptable.Open();
+
+            ManifestEdit edit = new(
+                ptables: new ListEdit<PhysicalTable>(
+                    registered: new[] { ptable }
+                ),
+                vtables: new ListEdit<VirtualTable>(
+                    unregistered: new[] { vtable }
+                )
+            );
 
             _manifest.Commit(edit);
 

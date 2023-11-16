@@ -40,10 +40,20 @@ internal struct BinaryEncoder
         EncodeVarInt(value);
     }
 
+    public void VarInt32(int value)
+    {
+        VarUInt32((uint)value);
+    }
+
     public void VarUInt64(ulong value)
     {
         EnsureCapacity(16);
         EncodeVarInt(value);
+    }
+
+    public void VarInt64(long value)
+    {
+        VarUInt64((ulong)value);
     }
 
     public void ByteArray(ReadOnlySpan<byte> value)

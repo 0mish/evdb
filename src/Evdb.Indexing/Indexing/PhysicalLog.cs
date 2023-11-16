@@ -10,12 +10,19 @@ internal sealed class PhysicalLog : File, IDisposable
 
     private bool _disposed;
     private BinaryEncoder _encoder;
-    private readonly FileStream _file;
+    private FileStream? _file;
+
+    private readonly IFileSystem _fs;
 
     public PhysicalLog(IFileSystem fs, FileMetadata metadata) : base(metadata)
     {
-        _file = fs.OpenFile(metadata.Path, FileMode.Create, FileAccess.Write, FileShare.None);
+        _fs = fs;
         _encoder = new BinaryEncoder(Array.Empty<byte>());
+    }
+
+    public void Open()
+    {
+        _file = _fs.OpenFile(Metadata.Path, FileMode.Create, FileAccess.Write, FileShare.None);
     }
 
     public void LogSet(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value)
@@ -23,7 +30,7 @@ internal sealed class PhysicalLog : File, IDisposable
         _encoder.ByteArray(key);
         _encoder.ByteArray(value);
 
-        _file.Write(_encoder.Span);
+        _file!.Write(_encoder.Span);
 
         _encoder.Reset();
     }
@@ -35,7 +42,7 @@ internal sealed class PhysicalLog : File, IDisposable
             return;
         }
 
-        _file.Dispose();
+        _file?.Dispose();
 
         _disposed = true;
     }

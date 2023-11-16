@@ -1,5 +1,6 @@
-﻿using Evdb.IO;
-using System.Text;
+﻿using Evdb.Indexing.Format;
+using Evdb.IO;
+using System.Diagnostics;
 
 namespace Evdb.Indexing;
 
@@ -9,31 +10,29 @@ internal sealed class Manifest : IDisposable
 
     private ulong _versionNumber;
     private ulong _fileNumber;
-    private ManifestState _current = default!;
+    private ManifestState _current;
+    private LogWriter? _log;
 
-    private readonly FileStream _file;
-    private readonly BinaryWriter _writer;
+    private readonly object _sync;
     private readonly IFileSystem _fs;
+    private readonly IBlockCache _blockCache;
 
     public string Path { get; }
     public ulong VersionNumber => _versionNumber;
     public ulong FileNumber => _fileNumber;
     public ManifestState Current => _current;
 
-    public Manifest(IFileSystem fs, string path)
+    public Manifest(IFileSystem fs, string path, IBlockCache blockCache)
     {
         _fs = fs;
         _fs.CreateDirectory(path);
 
+        _blockCache = blockCache;
+
+        _sync = new object();
+        _current = new ManifestState(Array.Empty<VirtualTable>(), Array.Empty<PhysicalTable>(), Array.Empty<PhysicalLog>());
+
         Path = path;
-
-        // TODO: Locate latest valid manifest file.
-        FileId id = new(FileType.Manifest, number: 0);
-
-        Recover();
-
-        _file = fs.OpenFile(id.GetPath(path), FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
-        _writer = new BinaryWriter(_file, Encoding.UTF8, leaveOpen: true);
     }
 
     public ulong NextVersionNumber()
@@ -46,52 +45,7 @@ internal sealed class Manifest : IDisposable
         return _fileNumber++;
     }
 
-    public void Commit(ManifestEdit edit)
-    {
-        if (_disposed)
-        {
-            return;
-        }
-
-        ManifestState oldState;
-        ManifestState newState;
-
-        do
-        {
-            oldState = _current;
-
-            List<VirtualTable> vtables = new(oldState.VirtualTables);
-            List<PhysicalTable> ptables = new(oldState.PhysicalTables);
-            List<PhysicalLog> plogs = new(oldState.PhysicalLogs);
-
-            foreach (object obj in edit.Unregistered ?? Array.Empty<object>())
-            {
-                switch (obj)
-                {
-                    case VirtualTable vtable: vtables.Remove(vtable); break;
-                    case PhysicalTable ptable: ptables.Remove(ptable); break;
-                    case PhysicalLog plog: plogs.Remove(plog); break;
-                }
-            }
-
-            foreach (object obj in edit.Registered ?? Array.Empty<object>())
-            {
-                switch (obj)
-                {
-                    case VirtualTable vtable: vtables.Add(vtable); break;
-                    case PhysicalTable ptable: ptables.Add(ptable); break;
-                    case PhysicalLog plog: plogs.Add(plog); break;
-                }
-            }
-
-            newState = new ManifestState(vtables.ToArray(), ptables.ToArray(), plogs.ToArray());
-        }
-        while (Interlocked.CompareExchange(ref _current, newState, oldState) != oldState);
-
-        // FIXME: Log the edit.
-    }
-
-    private void Recover()
+    public Status Open()
     {
         FileId? latestManifest = default;
 
@@ -108,50 +62,267 @@ internal sealed class Manifest : IDisposable
         {
             _current = new ManifestState(Array.Empty<VirtualTable>(), Array.Empty<PhysicalTable>(), Array.Empty<PhysicalLog>());
 
-            return;
+            return Open(new FileId(FileType.Manifest, number: 0));
         }
 
-        // TODO: Implement recovery.
-        _current = new ManifestState(Array.Empty<VirtualTable>(), Array.Empty<PhysicalTable>(), Array.Empty<PhysicalLog>());
+        // Otherwise we recover from the latest manifest.
+        Status status = Recover(latestManifest.Value);
+
+        if (!status.IsSuccess)
+        {
+            return status;
+        }
+
+        return Open(latestManifest.Value);
     }
 
-#if false
-    private void LogEdit(in ManifestEdit edit, ulong versionNumber, ulong fileNumber)
+    private Status Open(FileId id)
     {
-        EncodeUInt64(versionNumber);
-        EncodeUInt64(fileNumber);
+        FileStream file = _fs.OpenFile(id.GetPath(Path), FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
 
-        EncodeFileIdArray(edit.FilesUnregistered);
-        EncodeFileIdArray(edit.FilesRegistered);
+        _log = new LogWriter(file);
 
-        _writer.Flush();
+        return Status.Success;
+    }
 
-        void EncodeUInt64(ulong? value)
+    public Status Commit(in ManifestEdit edit)
+    {
+        if (_disposed)
         {
-            _writer.Write(value.HasValue);
+            return Status.Disposed;
+        }
 
-            if (value.HasValue)
+        if (_log == null)
+        {
+            return Status.Closed;
+        }
+
+        // Serialize on the manifest so modifications written to the on disk and memory is in sync.
+        //
+        // TODO:
+        // If we want to make this concurrent, we run into a problem similar to that of enabling concurrent writers on
+        // the virtual tables. But the manifest is generally mutated at a slower rate compared to the virtual tables,
+        // so not sure if worth the engineering effort. But is it worth the flex?
+        lock (_sync)
+        {
+            ManifestState oldState = _current;
+
+            List<VirtualTable> vtables = new(oldState.VirtualTables);
+            List<PhysicalTable> ptables = new(oldState.PhysicalTables);
+            List<PhysicalLog> plogs = new(oldState.PhysicalLogs);
+
+            // Apply unregistrations first.
+            CommitUnregistered(edit.VirtualTables, vtables);
+            CommitUnregistered(edit.PhysicalTables, ptables);
+            CommitUnregistered(edit.PhysicalLogs, plogs);
+
+            // Apply registrations after.
+            CommitRegistered(edit.VirtualTables, vtables);
+            CommitRegistered(edit.PhysicalTables, ptables);
+            CommitRegistered(edit.PhysicalLogs, plogs);
+
+            _current = new ManifestState(vtables.ToArray(), ptables.ToArray(), plogs.ToArray());
+
+            return Log(edit);
+        }
+
+        static void CommitUnregistered<T>(in ListEdit<T> edit, List<T> values)
+        {
+            if (edit.Unregistered == null)
             {
-                _writer.Write7BitEncodedInt64((long)value.Value);
+                return;
+            }
+
+            foreach (T value in edit.Unregistered)
+            {
+                values.Remove(value);
             }
         }
 
-        void EncodeFileIdArray(FileId[]? value)
+        static void CommitRegistered<T>(in ListEdit<T> edit, List<T> values)
         {
-            value ??= Array.Empty<FileId>();
-
-            _writer.Write7BitEncodedInt(value.Length);
-
-            foreach (FileId fileId in value)
+            if (edit.Registered != null)
             {
-                _writer.Write((byte)fileId.Type);
-                _writer.Write7BitEncodedInt64((long)fileId.Number);
+                values.AddRange(edit.Registered);
             }
         }
     }
-#endif
 
-    // TODO: Move state to a new squashed manfiest log?
+    private Status Log(in ManifestEdit edit)
+    {
+        Debug.Assert(_log != null);
+        Debug.Assert(Monitor.IsEntered(_sync));
+
+        // If log exceeded maximum size, we segment and move to a new one.
+        if (_log.Length > 1024)
+        {
+            Status status = Segment();
+
+            if (!status.IsSuccess)
+            {
+                return status;
+            }
+        }
+
+        BinaryEncoder encoder = new(Array.Empty<byte>());
+
+        // Encode unregistrations first.
+        Encode(edit.PhysicalTables.Unregistered);
+        Encode(edit.PhysicalLogs.Unregistered);
+
+        // Encode registrations after.
+        Encode(edit.PhysicalTables.Registered);
+        Encode(edit.PhysicalLogs.Registered);
+
+        return _log.Write(encoder.Span);
+
+        void Encode(File[]? files)
+        {
+            if (files == null)
+            {
+                encoder.VarInt32(0);
+                return;
+            }
+
+            encoder.VarInt32(files.Length);
+
+            foreach (File file in files)
+            {
+                FileId id = file.Metadata.Id;
+
+                // FIXME: Encode as byte. But the range of id.Type is less than 128 so it is already encoded in a single byte.
+                encoder.VarUInt32((byte)id.Type);
+                encoder.VarUInt64(id.Number);
+            }
+        }
+    }
+
+    private Status Segment()
+    {
+        Debug.Assert(Monitor.IsEntered(_sync));
+
+        // Close the current log.
+        _log?.Dispose();
+
+        ulong number = NextFileNumber();
+        FileId id = new(FileType.Manifest, number);
+        Status status = Open(id);
+
+        if (!status.IsSuccess)
+        {
+            return status;
+        }
+
+        // Create the initial edit representing the current state.
+        ManifestState state = _current;
+        ManifestEdit edit = new(
+            ptables: new ListEdit<PhysicalTable>(
+                registered: state.PhysicalTables
+            ),
+            plogs: new ListEdit<PhysicalLog>(
+                registered: state.PhysicalLogs
+            )
+        );
+
+        return Log(edit);
+    }
+
+    private Status Recover(FileId id)
+    {
+        FileStream file = _fs.OpenFile(id.GetPath(Path), FileMode.Open, FileAccess.Read, FileShare.None);
+        using LogReader reader = new(file);
+
+        List<FileId> ptableIds = new();
+        List<FileId> plogIds = new();
+
+        while (true)
+        {
+            Status status = reader.Read(out byte[]? data);
+
+            if (!status.IsSuccess || status.IsEoF)
+            {
+                break;
+            }
+
+            BinaryDecoder decoder = new(data!);
+
+            if (!Decode(id => ptableIds.Remove(id)))
+            {
+                return Status.Corrupted;
+            }
+
+            if (!Decode(id => plogIds.Remove(id)))
+            {
+                return Status.Corrupted;
+            }
+
+            if (!Decode(id => ptableIds.Add(id)))
+            {
+                return Status.Corrupted;
+            }
+
+            if (!Decode(id => plogIds.Add(id)))
+            {
+                return Status.Corrupted;
+            }
+
+            bool Decode(Action<FileId> action)
+            {
+                if (!decoder.VarUInt32(out uint length))
+                {
+                    return false;
+                }
+
+                for (int i = 0; i < length; i++)
+                {
+                    if (!decoder.VarUInt32(out uint type))
+                    {
+                        return false;
+                    }
+
+                    if (!decoder.VarUInt64(out ulong number))
+                    {
+                        return false;
+                    }
+
+                    action(new FileId((FileType)type, number));
+                }
+
+                return true;
+            }
+        }
+
+        ulong number = id.Number;
+        List<PhysicalTable> ptables = new();
+        List<PhysicalLog> plogs = new();
+
+        foreach (FileId tid in ptableIds)
+        {
+            FileMetadata metadata = new(Path, tid.Type, tid.Number);
+            PhysicalTable ptable = new(_fs, metadata, _blockCache);
+
+            ptable.Open();
+            ptables.Add(ptable);
+
+            number = ulong.Max(tid.Number, number);
+        }
+
+        foreach (FileId lid in plogIds)
+        {
+            FileMetadata metadata = new(Path, lid.Type, lid.Number);
+            PhysicalLog plog = new(_fs, metadata);
+
+            plogs.Add(plog);
+
+            number = ulong.Max(lid.Number, number);
+        }
+
+        _fileNumber = number;
+        _current = new ManifestState(Array.Empty<VirtualTable>(), ptables.ToArray(), plogs.ToArray());
+
+        return Status.Success;
+    }
+
     public void Dispose()
     {
         if (_disposed)
@@ -159,10 +330,13 @@ internal sealed class Manifest : IDisposable
             return;
         }
 
-        // FIXME: Log latest version?
+        // Move state to a new manifest log.
+        lock (_sync)
+        {
+            Segment();
 
-        _writer.Dispose();
-        _file.Dispose();
+            _log?.Dispose();
+        }
 
         foreach (PhysicalLog log in Current.PhysicalLogs)
         {

@@ -26,6 +26,7 @@ public readonly struct EvdbBenchmarkDriver : IBenchmarkDriver, IDisposable
         };
 
         _database = new Database(_options);
+        _database.Open();
     }
 
     public bool TryGet(ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)

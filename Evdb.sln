@@ -19,7 +19,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "examples", "examples", "{BA
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Evdb.MicroBenchmarks", "tests\Evdb.MicroBenchmarks\Evdb.MicroBenchmarks.csproj", "{2210FB1A-A5B3-4E10-BB42-4D7FE7418DCA}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Evdb.Indexing", "src\Evdb.Indexing\Evdb.Indexing.csproj", "{31E5B7E0-16EB-4ABC-9FDD-E3E5AA1A9FCA}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Evdb.Indexing", "src\Evdb.Indexing\Evdb.Indexing.csproj", "{31E5B7E0-16EB-4ABC-9FDD-E3E5AA1A9FCA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Evdb.Example.Indexing", "examples\Evdb.Example.Indexing\Evdb.Example.Indexing.csproj", "{ECF38C71-87BF-47B7-9674-BEF3DB0BE55A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -51,6 +53,10 @@ Global
 		{31E5B7E0-16EB-4ABC-9FDD-E3E5AA1A9FCA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{31E5B7E0-16EB-4ABC-9FDD-E3E5AA1A9FCA}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{31E5B7E0-16EB-4ABC-9FDD-E3E5AA1A9FCA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{ECF38C71-87BF-47B7-9674-BEF3DB0BE55A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ECF38C71-87BF-47B7-9674-BEF3DB0BE55A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ECF38C71-87BF-47B7-9674-BEF3DB0BE55A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ECF38C71-87BF-47B7-9674-BEF3DB0BE55A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -62,6 +68,7 @@ Global
 		{FE873E6B-6D54-4807-B533-C4F2E84DAB0F} = {BA95730D-B204-4788-B4B2-F685C1BA2F5A}
 		{2210FB1A-A5B3-4E10-BB42-4D7FE7418DCA} = {B7D847BA-F187-451F-A356-53A35F582260}
 		{31E5B7E0-16EB-4ABC-9FDD-E3E5AA1A9FCA} = {ABD1D77F-B1B6-4812-8FD4-C19E6D7AE307}
+		{ECF38C71-87BF-47B7-9674-BEF3DB0BE55A} = {BA95730D-B204-4788-B4B2-F685C1BA2F5A}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {3DE0C62D-C2A1-4A5D-B7D0-13886ECAB4AC}
