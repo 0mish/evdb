@@ -11,7 +11,7 @@ internal sealed class Manifest : IDisposable
     private ulong _fileNumber;
     private ManifestState _current = default!;
 
-    private readonly Stream _file;
+    private readonly FileStream _file;
     private readonly BinaryWriter _writer;
     private readonly IFileSystem _fs;
 

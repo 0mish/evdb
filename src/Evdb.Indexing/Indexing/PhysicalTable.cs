@@ -12,7 +12,7 @@ internal sealed class PhysicalTable : File, IDisposable
 
     private bool _disposed;
 
-    private Stream _file = default!;
+    private FileStream _file = default!;
 
     private readonly BloomFilter? _filter;
     private readonly Block _index;

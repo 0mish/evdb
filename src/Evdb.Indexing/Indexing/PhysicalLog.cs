@@ -10,7 +10,7 @@ internal sealed class PhysicalLog : File, IDisposable
 
     private bool _disposed;
     private BinaryEncoder _encoder;
-    private readonly Stream _file;
+    private readonly FileStream _file;
 
     public PhysicalLog(IFileSystem fs, FileMetadata metadata) : base(metadata)
     {
