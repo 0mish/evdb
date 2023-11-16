@@ -8,7 +8,7 @@ namespace Evdb.Indexing;
 [DebuggerDisplay("{DebuggerDisplay,nq}")]
 internal sealed class PhysicalTable : File, IDisposable
 {
-    private string DebuggerDisplay => $"PhysicalTable {Metadata.Path}";
+    private string DebuggerDisplay => $"{nameof(PhysicalTable)} = {Metadata.Path}";
 
     private bool _disposed;
 

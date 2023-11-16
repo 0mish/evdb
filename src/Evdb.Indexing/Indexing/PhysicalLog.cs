@@ -6,7 +6,7 @@ namespace Evdb.Indexing;
 [DebuggerDisplay("{DebuggerDisplay,nq}")]
 internal sealed class PhysicalLog : File, IDisposable
 {
-    private string DebuggerDisplay => $"PhysicalLog {Metadata.Path}";
+    private string DebuggerDisplay => $"{nameof(PhysicalLog)} = {Metadata.Path}";
 
     private bool _disposed;
     private BinaryEncoder _encoder;

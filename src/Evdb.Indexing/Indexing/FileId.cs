@@ -2,10 +2,10 @@
 
 namespace Evdb.Indexing;
 
-[DebuggerDisplay("FileId {DebuggerDisplay,nq}")]
+[DebuggerDisplay("{DebuggerDisplay,nq}")]
 internal readonly struct FileId : IEquatable<FileId>
 {
-    private string DebuggerDisplay => $"{GetPath(string.Empty)}";
+    private string DebuggerDisplay => $"FileId = {GetPath(string.Empty)}";
 
     public FileType Type { get; }
     public ulong Number { get; }

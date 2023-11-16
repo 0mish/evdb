@@ -7,7 +7,7 @@ namespace Evdb.Indexing;
 [DebuggerDisplay("{DebuggerDisplay,nq}")]
 internal sealed class VirtualTable : IDisposable
 {
-    private string DebuggerDisplay => $"VirtualTable {_log?.Metadata.Path}";
+    private string DebuggerDisplay => $"{nameof(VirtualTable)} = {_log?.Metadata.Path}";
 
     private bool _disposed;
     private readonly SkipList _kvs;
