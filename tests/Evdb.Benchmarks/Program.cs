@@ -46,7 +46,7 @@ static BenchmarkResult Run<TDriver>(BenchmarkOptions options) where TDriver : IB
     {
         EvdbBenchmarkDriverOptions driverOptions = new()
         {
-            VirtualTableSize = 1024 * 16
+            VirtualTableSize = 1024 * 1024 * 16
         };
 
         EvdbBenchmarkDriver driver = new(driverOptions);
@@ -61,7 +61,7 @@ static BenchmarkResult Run<TDriver>(BenchmarkOptions options) where TDriver : IB
     {
         RocksDbBenchmarkDriverOptions driverOptions = new()
         {
-            WriteBufferSize = 1024 * 16,
+            WriteBufferSize = 1024 * 1024 * 16,
 
             // Disable auto compaction for a more apples to apples comparison with evdb.
             //

@@ -1,4 +1,5 @@
-﻿using Evdb.IO;
+﻿using Evdb.Indexing.Format;
+using Evdb.IO;
 using System.Diagnostics;
 
 namespace Evdb.Indexing;
@@ -10,7 +11,7 @@ internal sealed class PhysicalLog : File, IDisposable
 
     private bool _disposed;
     private BinaryEncoder _encoder;
-    private FileStream? _file;
+    private LogWriter? _log;
 
     private readonly IFileSystem _fs;
 
@@ -22,17 +23,30 @@ internal sealed class PhysicalLog : File, IDisposable
 
     public void Open()
     {
-        _file = _fs.OpenFile(Metadata.Path, FileMode.Create, FileAccess.Write, FileShare.None);
+        FileStream file = _fs.OpenFile(Metadata.Path, FileMode.Create, FileAccess.Write, FileShare.None);
+
+        _log = new LogWriter(file);
     }
 
-    public void LogSet(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value)
+    public Status LogSet(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value)
     {
+        if (_disposed)
+        {
+            return Status.Disposed;
+        }
+        else if (_log == null)
+        {
+            return Status.Closed;
+        }
+
         _encoder.ByteArray(key);
         _encoder.ByteArray(value);
 
-        _file!.Write(_encoder.Span);
+        _log?.Write(_encoder.Span);
 
         _encoder.Reset();
+
+        return Status.Success;
     }
 
     public void Dispose()
@@ -42,7 +56,8 @@ internal sealed class PhysicalLog : File, IDisposable
             return;
         }
 
-        _file?.Dispose();
+        _log?.Dispose();
+        _log = null;
 
         _disposed = true;
     }

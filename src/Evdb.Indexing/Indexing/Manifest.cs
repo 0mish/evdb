@@ -91,8 +91,7 @@ internal sealed class Manifest : IDisposable
         {
             return Status.Disposed;
         }
-
-        if (_log == null)
+        else if (_log == null)
         {
             return Status.Closed;
         }

@@ -48,8 +48,7 @@ public sealed class Database : IDisposable
         {
             return Status.Disposed;
         }
-
-        if (_table == null)
+        else if (_table == null)
         {
             return Status.Closed;
         }
