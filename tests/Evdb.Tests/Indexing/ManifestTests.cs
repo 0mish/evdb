@@ -204,19 +204,6 @@ public class ManifestTests
     }
 
     [Test]
-    public void NextVersionNumber__ReturnsValue()
-    {
-        // Arrange
-        ulong versionNo = _manifest.VersionNumber;
-
-        // Act
-        _manifest.NextVersionNumber();
-
-        // Assert
-        Assert.That(_manifest.VersionNumber, Is.GreaterThan(versionNo));
-    }
-
-    [Test]
     public void NextFileNumber__ReturnsValue()
     {
         // Arrange

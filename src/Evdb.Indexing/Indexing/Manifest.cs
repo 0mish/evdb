@@ -8,7 +8,6 @@ internal sealed class Manifest : IDisposable
 {
     private bool _disposed;
 
-    private ulong _versionNumber;
     private ulong _fileNumber;
     private ManifestState _current;
     private LogWriter? _log;
@@ -18,7 +17,6 @@ internal sealed class Manifest : IDisposable
     private readonly IBlockCache _blockCache;
 
     public string Path { get; }
-    public ulong VersionNumber => _versionNumber;
     public ulong FileNumber => _fileNumber;
     public ManifestState Current => _current;
 
@@ -33,11 +31,6 @@ internal sealed class Manifest : IDisposable
         _current = new ManifestState(Array.Empty<VirtualTable>(), Array.Empty<PhysicalTable>(), Array.Empty<PhysicalLog>());
 
         Path = path;
-    }
-
-    public ulong NextVersionNumber()
-    {
-        return _versionNumber++;
     }
 
     public ulong NextFileNumber()
