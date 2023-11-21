@@ -127,7 +127,7 @@ internal unsafe sealed class SkipList : IDisposable
         Node* node = _nodeArena.Allocate<Node>();
 
         node->Height = height;
-        node->Next = (Node**)_nodeArena.Allocate<nuint>(height);
+        node->Next = (Node**)_nodeArena.Allocate<nuint>(height, alignment: 1);
 
         node->KeyLength = key.Length;
         node->KeyPointer = _keyArena.Allocate<byte>(key.Length);

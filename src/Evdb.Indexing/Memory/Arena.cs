@@ -19,14 +19,14 @@ internal unsafe sealed class Arena : IDisposable
         _blockSize = blockSize;
     }
 
-    public T* Allocate<T>(int count = 1, nuint alignment = 1) where T : unmanaged
+    public T* Allocate<T>(int count = 1, nuint alignment = 16) where T : unmanaged
     {
         return (T*)Allocate((nuint)count * (nuint)sizeof(T), alignment);
     }
 
     // TODO: Make this concurrent.
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void* Allocate(nuint size, nuint alignment = 1)
+    public void* Allocate(nuint size, nuint alignment = 16)
     {
         if (size <= _blockSize)
         {
