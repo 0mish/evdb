@@ -22,4 +22,10 @@ public class Hash
     {
         return Evdb.Hashing.Murmur1.Compute(_data).Value;
     }
+
+    [Benchmark]
+    public uint Crc32c()
+    {
+        return Evdb.Hashing.Crc32c.Compute(_data).Value;
+    }
 }
