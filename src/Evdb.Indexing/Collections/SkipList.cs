@@ -159,6 +159,7 @@ internal unsafe sealed class SkipList : IDisposable
 
     private struct Node
     {
+        // TODO: Optimize `Next` field away.
         public Node** Next;
         public byte* KeyPointer;
         public byte* ValuePointer;

@@ -3,7 +3,7 @@
     "Evdb.Benchmarks": {
       "commandName": "Project",
       "environmentVariables": {
-        "DOTNET_JitDisasmmm": "Evdb.Collections.BloomFilter:*"
+        "_DOTNET_JitDisasm": "Evdb.Memory.Arena:*"
       }
     }
   }

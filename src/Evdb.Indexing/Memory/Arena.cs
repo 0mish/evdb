@@ -1,48 +1,73 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace Evdb.Memory;
 
 internal unsafe sealed class Arena : IDisposable
 {
-    private const int BlockSize = 1024 * 16;
-
     private bool _disposed;
-    private Block _tail;
-    private Block? _etail;
+    private Block _blocks;
+    private Block? _extraBlocks;
 
-    public Arena()
+    private readonly nuint _blockSize;
+
+    public Arena(nuint blockSize = 1024 * 32)
     {
-        _tail = AllocateBlock(BlockSize, ref _tail!);
-        _etail = null;
+        _blocks = AllocateBlock(blockSize, ref _blocks!);
+        _extraBlocks = null;
+
+        _blockSize = blockSize;
     }
 
-    public void* Allocate(nuint size, nuint alignment)
-    {
-        if (size > BlockSize)
-        {
-            return AllocateBlock(size, ref _etail).Pointer;
-        }
-
-        // TODO: Make this concurrent.
-        Block block = _tail;
-        nuint alignedSize = size + alignment;
-
-        if (block.AllocPointer + alignedSize > block.EndPointer)
-        {
-            block = AllocateBlock(BlockSize, ref _tail!);
-        }
-
-        void* result = block.AllocPointer;
-        void* alignedResult = (void*)(((nuint)result + (alignment - 1)) & ~(alignment - 1));
-
-        block.AllocPointer += alignedSize;
-
-        return alignedResult;
-    }
-
-    public T* Allocate<T>(int count = 1, nuint alignment = 16) where T : unmanaged
+    public T* Allocate<T>(int count = 1, nuint alignment = 1) where T : unmanaged
     {
         return (T*)Allocate((nuint)count * (nuint)sizeof(T), alignment);
+    }
+
+    // TODO: Make this concurrent.
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void* Allocate(nuint size, nuint alignment = 1)
+    {
+        if (size <= _blockSize)
+        {
+            Block block = _blocks;
+
+            byte* pointer = block.Pointer;
+            byte* alignedPointer = (byte*)((nuint)(pointer + (alignment - 1)) & ~(alignment - 1));
+            byte* endPointer = alignedPointer + size;
+
+            if (endPointer <= block.EndPointer)
+            {
+                block.Pointer = endPointer;
+
+                return alignedPointer;
+            }
+
+            return AllocateSlow(size);
+        }
+
+        return AllocateBlockSlow(size);
+
+        // NOTE:
+        //
+        // Manually perform method outlining and help the JIT turn these into tail-calls eliminating the call frame
+        // setup.
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        void* AllocateSlow(nuint size)
+        {
+            Block block = AllocateBlock(_blockSize, ref _blocks!);
+            void* pointer = block.Pointer;
+
+            block.Pointer += size;
+
+            return pointer;
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        void* AllocateBlockSlow(nuint size)
+        {
+            return AllocateBlock(size, ref _extraBlocks).StartPointer;
+        }
     }
 
     private static Block AllocateBlock(nuint size, ref Block? tail)
@@ -50,8 +75,8 @@ internal unsafe sealed class Arena : IDisposable
         byte* data = (byte*)NativeMemory.Alloc(size);
         Block block = new()
         {
-            AllocPointer = data,
             Pointer = data,
+            StartPointer = data,
             EndPointer = data + size,
             Previous = tail
         };
@@ -73,8 +98,8 @@ internal unsafe sealed class Arena : IDisposable
 
         GC.SuppressFinalize(this);
 
-        FreeList(_tail);
-        FreeList(_etail);
+        FreeList(_blocks);
+        FreeList(_extraBlocks);
 
         _disposed = true;
 
@@ -84,7 +109,7 @@ internal unsafe sealed class Arena : IDisposable
 
             while (node != null)
             {
-                NativeMemory.Free(node.Pointer);
+                NativeMemory.Free(node.StartPointer);
 
                 node = node.Previous;
             }
@@ -98,8 +123,8 @@ internal unsafe sealed class Arena : IDisposable
 
     private class Block
     {
+        public byte* StartPointer;
         public byte* Pointer;
-        public byte* AllocPointer;
         public byte* EndPointer;
         public Block? Previous;
     }
