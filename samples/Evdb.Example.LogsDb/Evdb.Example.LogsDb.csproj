@@ -1,15 +1,12 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net7.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="RocksDB" Version="8.5.3.42578" />
-  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Evdb.Storage.LogsDb\Evdb.Storage.LogsDb.csproj" />

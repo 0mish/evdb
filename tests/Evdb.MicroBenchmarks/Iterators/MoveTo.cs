@@ -1,6 +1,6 @@
 ﻿using BenchmarkDotNet.Attributes;
 using Evdb.Collections;
-using Evdb.Indexing.Format;
+using Evdb.Storage.LogsDb.Format;
 
 namespace Evdb.MicroBenchmarks.Iterators;
 

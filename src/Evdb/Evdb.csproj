@@ -15,7 +15,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Evdb.Indexing\Evdb.Indexing.csproj" />
+      <ProjectReference Include="..\Evdb.Storage\Evdb.Storage.csproj" />
     </ItemGroup>
 
 </Project>

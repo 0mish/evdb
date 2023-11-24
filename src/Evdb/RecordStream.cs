@@ -1,4 +1,4 @@
-﻿using Evdb.Indexing;
+﻿using Evdb.Storage;
 using System.Collections;
 using System.Diagnostics;
 using System.Text;
@@ -14,11 +14,11 @@ public sealed class RecordStream
 
     private readonly object _sync;
     private readonly byte[] _key;
-    private readonly Database _db;
+    private readonly IDatabase _db;
 
     public string Name { get; }
 
-    internal RecordStream(Database db, string name)
+    internal RecordStream(IDatabase db, string name)
     {
         _sync = new object();
         _db = db;
@@ -64,6 +64,7 @@ public sealed class RecordStream
         Append(record);
     }
 
+#if false
     public Iterator GetIterator()
     {
         return new Iterator(this);
@@ -121,4 +122,5 @@ public sealed class RecordStream
             return GetEnumerator();
         }
     }
+#endif
 }

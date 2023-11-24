@@ -1,6 +1,6 @@
-﻿using Evdb.Indexing;
+﻿using Evdb.Storage.LogsDb;
 
-namespace Evdb.Tests.Indexing;
+namespace Evdb.Tests.Storage;
 
 internal class FileIdTests
 {

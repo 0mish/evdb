@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net7.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <RootNamespace>Evdb</RootNamespace>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Evdb.Storage.LogsDb" />
+        <InternalsVisibleTo Include="Evdb.Storage.RocksDb" />
+    </ItemGroup>
+
+</Project>

@@ -12,11 +12,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Evdb\Evdb.csproj" />
+    <Folder Include="BenchmarkDotNet.Artifacts\" />
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="BenchmarkDotNet.Artifacts\" />
+    <ProjectReference Include="..\..\src\Evdb.Storage.LogsDb\Evdb.Storage.LogsDb.csproj" />
   </ItemGroup>
 
 </Project>

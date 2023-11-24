@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Evdb</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Evdb.Tests" />
+    <InternalsVisibleTo Include="Evdb.Benchmarks" />
+    <InternalsVisibleTo Include="Evdb.MicroBenchmarks" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Evdb.Storage\Evdb.Storage.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,8 +1,8 @@
-﻿using Evdb.Indexing;
-using Evdb.Indexing.Format;
-using Evdb.IO;
+﻿using Evdb.IO;
+using Evdb.Storage.LogsDb;
+using Evdb.Storage.LogsDb.Format;
 
-namespace Evdb.Tests.Indexing;
+namespace Evdb.Tests.Storage;
 
 public class ManifestTests
 {

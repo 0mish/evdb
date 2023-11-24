@@ -1,4 +1,4 @@
-﻿using Evdb.Indexing;
+﻿using Evdb.Storage;
 using System.Collections.Concurrent;
 using System.Text;
 
@@ -7,19 +7,20 @@ namespace Evdb;
 public sealed class Store : IDisposable
 {
     private bool _disposed;
-    private readonly Database _index;
+    private readonly IDatabase _db;
     private readonly ConcurrentDictionary<string, RecordStream> _streams;
 
-    public Store(string path)
+    public Store(StoreOptions options)
     {
-        DatabaseOptions options = new()
-        {
-            Path = path
-        };
+        ArgumentNullException.ThrowIfNull(options, nameof(options));
 
         _streams = new ConcurrentDictionary<string, RecordStream>();
-        _index = new Database(options);
-        _index.Open();
+        _db = options.Database;
+    }
+
+    public void Open()
+    {
+        _db.Open();
     }
 
     public RecordStream All()
@@ -31,7 +32,7 @@ public sealed class Store : IDisposable
     {
         ArgumentNullException.ThrowIfNull(name, nameof(name));
 
-        return _streams.GetOrAdd(name, key => new RecordStream(_index, name));
+        return _streams.GetOrAdd(name, key => new RecordStream(_db, name));
     }
 
     public bool Exists(string name)
@@ -40,7 +41,7 @@ public sealed class Store : IDisposable
 
         ReadOnlySpan<byte> key = Encoding.UTF8.GetBytes(name);
 
-        return _index.Get(key, out _).IsSuccess;
+        return _db.Get(key, out _).IsSuccess;
     }
 
     public void Dispose()
@@ -50,7 +51,7 @@ public sealed class Store : IDisposable
             return;
         }
 
-        _index.Dispose();
+        _db.Dispose();
         _disposed = true;
     }
 }

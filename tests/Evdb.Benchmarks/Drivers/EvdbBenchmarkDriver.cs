@@ -1,4 +1,4 @@
-﻿using Evdb.Indexing;
+﻿using Evdb.Storage.LogsDb;
 
 namespace Evdb.Benchmarks.Drivers;
 
