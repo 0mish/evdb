@@ -7,12 +7,12 @@ public struct EvdbBenchmarkDriverOptions
     public int VirtualTableSize { get; set; }
 }
 
-public readonly struct EvdbBenchmarkDriver : IBenchmarkDriver, IDisposable
+public readonly struct LogsDbBenchmarkDriver : IBenchmarkDriver, IDisposable
 {
     private readonly Database _database;
     private readonly DatabaseOptions _options;
 
-    public EvdbBenchmarkDriver(EvdbBenchmarkDriverOptions options)
+    public LogsDbBenchmarkDriver(EvdbBenchmarkDriverOptions options)
     {
         if (Directory.Exists("evdb-db"))
         {

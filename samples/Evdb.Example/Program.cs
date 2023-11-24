@@ -1,8 +1,12 @@
 ﻿using Evdb;
+using Evdb.Storage.RocksDb;
 
 StoreOptions options = new()
 {
-    Path = "db"
+    Database = new Database(new DatabaseOptions
+    {
+        Path = "rocks-db"
+    })
 };
 
 using Store store = new(options);

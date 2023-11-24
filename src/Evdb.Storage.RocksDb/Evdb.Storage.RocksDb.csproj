@@ -7,4 +7,12 @@
     <RootNamespace>Evdb</RootNamespace>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="RocksDB" Version="8.7.3.43743" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Evdb.Storage\Evdb.Storage.csproj" />
+  </ItemGroup>
+
 </Project>

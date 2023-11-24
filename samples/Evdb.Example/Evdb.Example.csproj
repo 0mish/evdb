@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Evdb.Storage.RocksDb\Evdb.Storage.RocksDb.csproj" />
     <ProjectReference Include="..\..\src\Evdb\Evdb.csproj" />
   </ItemGroup>
 

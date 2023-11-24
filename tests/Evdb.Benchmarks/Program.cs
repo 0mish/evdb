@@ -1,7 +1,7 @@
 ﻿using Evdb.Benchmarks;
 using Evdb.Benchmarks.Drivers;
 
-RunSuite<EvdbBenchmarkDriver>();
+RunSuite<LogsDbBenchmarkDriver>();
 RunSuite<RocksDbBenchmarkDriver>();
 
 static void RunSuite<TDriver>() where TDriver : IBenchmarkDriver
@@ -42,16 +42,16 @@ static void RunSuite<TDriver>() where TDriver : IBenchmarkDriver
 
 static BenchmarkResult Run<TDriver>(BenchmarkOptions options) where TDriver : IBenchmarkDriver
 {
-    if (typeof(TDriver) == typeof(EvdbBenchmarkDriver))
+    if (typeof(TDriver) == typeof(LogsDbBenchmarkDriver))
     {
         EvdbBenchmarkDriverOptions driverOptions = new()
         {
             VirtualTableSize = 1024 * 1024 * 16
         };
 
-        EvdbBenchmarkDriver driver = new(driverOptions);
+        LogsDbBenchmarkDriver driver = new(driverOptions);
 
-        using Benchmark<EvdbBenchmarkDriver> bench = new(options, driver);
+        using Benchmark<LogsDbBenchmarkDriver> bench = new(options, driver);
 
         BenchmarkResult result = bench.Run();
 

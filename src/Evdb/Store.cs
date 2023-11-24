@@ -16,10 +16,6 @@ public sealed class Store : IDisposable
 
         _streams = new ConcurrentDictionary<string, RecordStream>();
         _db = options.Database;
-    }
-
-    public void Open()
-    {
         _db.Open();
     }
 
