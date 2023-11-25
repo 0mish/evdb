@@ -26,7 +26,7 @@ public sealed class Database : IDisposable
 
         _sync = new object();
         _blockCache = new WeakReferenceBlockCache();
-        _manifest = new Manifest(options.FileSystem, options.Path, _blockCache);
+        _manifest = new Manifest(options.FileSystem, options.Path, _blockCache, options.ManifestLogSize);
 
         // TODO: Make the number of compaction thread configurable.
         _compactionQueue = new CompactionQueue();

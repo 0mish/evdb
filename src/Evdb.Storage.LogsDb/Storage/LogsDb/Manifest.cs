@@ -15,17 +15,19 @@ internal sealed class Manifest : IDisposable
     private readonly object _sync;
     private readonly IFileSystem _fs;
     private readonly IBlockCache _blockCache;
+    private readonly ulong _manifestLogSize;
 
     public string Path { get; }
     public ulong FileNumber => _fileNumber;
     public ManifestState Current => _current;
 
-    public Manifest(IFileSystem fs, string path, IBlockCache blockCache)
+    public Manifest(IFileSystem fs, string path, IBlockCache blockCache, ulong manifestLogSize)
     {
         _fs = fs;
         _fs.CreateDirectory(path);
 
         _blockCache = blockCache;
+        _manifestLogSize = manifestLogSize;
 
         _sync = new object();
         _current = new ManifestState(Array.Empty<VirtualTable>(), Array.Empty<PhysicalTable>(), Array.Empty<PhysicalLog>());
@@ -146,7 +148,7 @@ internal sealed class Manifest : IDisposable
         Debug.Assert(Monitor.IsEntered(_sync));
 
         // If log exceeded maximum size, we segment and move to a new one.
-        if (_log.Length > 1024)
+        if (_log.Length > _manifestLogSize)
         {
             Status status = Segment();
 

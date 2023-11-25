@@ -17,7 +17,7 @@ public class ManifestTests
     {
         _fs = new FileSystem();
         _blockCache = new WeakReferenceBlockCache();
-        _manifest = new Manifest(_fs, TestPath, _blockCache);
+        _manifest = new Manifest(_fs, TestPath, _blockCache, manifestLogSize: 1024);
     }
 
     [TearDown]
@@ -185,7 +185,7 @@ public class ManifestTests
         _manifest.Commit(edit);
         _manifest.Dispose();
 
-        _manifest = new Manifest(_fs, TestPath, _blockCache);
+        _manifest = new Manifest(_fs, TestPath, _blockCache, manifestLogSize: 1024);
 
         // Act
         Status status = _manifest.Open();
