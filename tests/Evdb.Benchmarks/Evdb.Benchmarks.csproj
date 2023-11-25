@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Evdb.Storage.LogsDb\Evdb.Storage.LogsDb.csproj" />
+    <ProjectReference Include="..\..\src\LogsDb\LogsDb.csproj" />
   </ItemGroup>
 
 </Project>

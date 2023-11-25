@@ -1,5 +1,5 @@
 ﻿using BenchmarkDotNet.Attributes;
-using Evdb.IO;
+using LogsDb.IO;
 
 namespace Evdb.MicroBenchmarks.IO.Encoding;
 

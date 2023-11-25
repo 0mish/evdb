@@ -9,12 +9,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="Evdb.Tests" />
-    <InternalsVisibleTo Include="Evdb.Benchmarks" />
-    <InternalsVisibleTo Include="Evdb.MicroBenchmarks" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\Evdb.Storage\Evdb.Storage.csproj" />
   </ItemGroup>
 

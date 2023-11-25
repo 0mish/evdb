@@ -1,5 +1,4 @@
-﻿using Evdb;
-using Evdb.Storage.LogsDb;
+﻿using LogsDb;
 
 unsafe
 {

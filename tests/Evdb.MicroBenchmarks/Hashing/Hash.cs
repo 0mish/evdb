@@ -20,6 +20,6 @@ public class Hash
     [Benchmark]
     public uint Murmur1()
     {
-        return Evdb.Hashing.Murmur1.Compute(_data).Value;
+        return LogsDb.Hashing.Murmur1.Compute(_data).Value;
     }
 }

@@ -1,5 +1,5 @@
 ﻿using BenchmarkDotNet.Attributes;
-using Evdb.Collections;
+using LogsDb.Collections;
 
 namespace Evdb.MicroBenchmarks.Collections.Sets;
 
