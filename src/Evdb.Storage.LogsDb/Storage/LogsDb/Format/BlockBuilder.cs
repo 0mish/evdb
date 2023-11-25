@@ -12,7 +12,7 @@ internal struct BlockBuilder
 
     public BlockBuilder()
     {
-        _encoder = new BinaryEncoder(Array.Empty<byte>());
+        _encoder = new BinaryEncoder();
     }
 
     public void Add(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value)

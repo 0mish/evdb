@@ -1,6 +1,5 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
-using Evdb.Storage.LogsDb;
 
 namespace Evdb.Storage.LogsDb.Format;
 

@@ -15,7 +15,7 @@ public class FixedInt
     public void IterationSetup()
     {
         _writer = new BinaryWriter(new MemoryStream());
-        _encoder = new BinaryEncoder(Array.Empty<byte>());
+        _encoder = new BinaryEncoder();
     }
 
     [Benchmark(Baseline = true)]

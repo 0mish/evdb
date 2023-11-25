@@ -1,5 +1,4 @@
-﻿using Evdb.Storage.LogsDb;
-using Evdb.IO;
+﻿using Evdb.IO;
 
 namespace Evdb.Storage.LogsDb.Format;
 

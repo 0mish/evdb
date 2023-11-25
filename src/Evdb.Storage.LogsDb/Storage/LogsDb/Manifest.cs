@@ -156,7 +156,7 @@ internal sealed class Manifest : IDisposable
             }
         }
 
-        BinaryEncoder encoder = new(Array.Empty<byte>());
+        BinaryEncoder encoder = new();
 
         // Encode unregistrations first.
         Encode(edit.PhysicalTables.Unregistered);

@@ -8,7 +8,7 @@ internal class BinaryEncoderTests
     public void UInt32__BytesWritten(uint value, ulong expectedPosition, byte[] expectedBuffer)
     {
         // Arrange
-        BinaryEncoder encoder = new(Array.Empty<byte>());
+        BinaryEncoder encoder = new();
 
         // Act
         encoder.UInt32(value);
@@ -29,7 +29,7 @@ internal class BinaryEncoderTests
     public void VarUInt32__BytesWritten(uint value, ulong expectedPosition, byte[] expectedBuffer)
     {
         // Arrange
-        BinaryEncoder encoder = new(Array.Empty<byte>());
+        BinaryEncoder encoder = new();
 
         // Act
         encoder.VarUInt32(value);
@@ -50,7 +50,7 @@ internal class BinaryEncoderTests
     public void VarUInt64__BytesWritten(ulong value, ulong expectedPosition, byte[] expectedBuffer)
     {
         // Arrange
-        BinaryEncoder encoder = new(Array.Empty<byte>());
+        BinaryEncoder encoder = new();
 
         // Act
         encoder.VarUInt64(value);
@@ -68,7 +68,7 @@ internal class BinaryEncoderTests
     public void ByteArray__BytesWritten(byte[] value, ulong expectedPosition, byte[] expectedBuffer)
     {
         // Arrange
-        BinaryEncoder encoder = new(Array.Empty<byte>());
+        BinaryEncoder encoder = new();
 
         // Act
         encoder.ByteArray(value);

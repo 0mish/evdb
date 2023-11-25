@@ -14,11 +14,14 @@ internal struct BinaryEncoder
     public readonly ulong Length => (ulong)_length;
     public readonly bool IsEmpty => _length == 0;
 
+    public BinaryEncoder()
+    {
+        _buffer = Array.Empty<byte>();
+    }
+
     public BinaryEncoder(byte[] buffer)
     {
-        Debug.Assert(buffer != null);
-
-        _buffer = buffer;
+        _buffer = buffer ?? Array.Empty<byte>();
     }
 
     public void UInt32(uint value)

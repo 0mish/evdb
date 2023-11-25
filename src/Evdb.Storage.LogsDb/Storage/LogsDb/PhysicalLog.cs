@@ -18,7 +18,7 @@ internal sealed class PhysicalLog : File, IDisposable
     public PhysicalLog(IFileSystem fs, FileMetadata metadata) : base(metadata)
     {
         _fs = fs;
-        _encoder = new BinaryEncoder(Array.Empty<byte>());
+        _encoder = new BinaryEncoder();
     }
 
     public void Open()

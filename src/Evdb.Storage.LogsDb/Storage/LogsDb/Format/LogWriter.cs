@@ -12,7 +12,7 @@ internal sealed class LogWriter : IDisposable
 
     public LogWriter(FileStream stream)
     {
-        _encoder = new BinaryEncoder(Array.Empty<byte>());
+        _encoder = new BinaryEncoder();
         _stream = stream;
     }
 

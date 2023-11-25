@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace Evdb.IO;
@@ -14,9 +13,7 @@ internal struct BinaryDecoder
 
     public BinaryDecoder(byte[] buffer)
     {
-        Debug.Assert(buffer != null);
-
-        _buffer = buffer;
+        _buffer = buffer ?? Array.Empty<byte>();
     }
 
     public bool UInt32(out uint value)

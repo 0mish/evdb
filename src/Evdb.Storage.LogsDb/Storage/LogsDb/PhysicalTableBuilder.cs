@@ -75,7 +75,7 @@ internal sealed class PhysicalTableBuilder
 
     private void WriteFooter(BlockHandle indexHandle)
     {
-        BinaryEncoder encoder = new(Array.Empty<byte>());
+        BinaryEncoder encoder = new();
 
         encoder.ByteArray(_filter.Span);
         encoder.ByteArray(_firstKey);
