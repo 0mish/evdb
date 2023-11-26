@@ -1,6 +1,6 @@
 ﻿using BenchmarkDotNet.Attributes;
 using LogsDb.Collections;
-using LogsDb.Formatting;
+using LogsDb.Formats.Blocked;
 
 namespace Evdb.MicroBenchmarks.Iterators;
 

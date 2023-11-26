@@ -1,4 +1,5 @@
 ﻿using LogsDb.Collections;
+using LogsDb.Formats.Blocked;
 using LogsDb.IO;
 using System.Diagnostics;
 
@@ -68,17 +69,10 @@ internal sealed class VirtualTable : IDisposable
 
     public void Flush(IFileSystem fs, FileMetadata metadata, ulong dataBlockSize, ulong bloomBlockSize)
     {
-        using Stream file = fs.OpenFile(metadata.Path, FileMode.Create, FileAccess.Write, FileShare.None);
+        using FileStream file = fs.OpenFile(metadata.Path, FileMode.Create, FileAccess.Write, FileShare.None);
+        using BlockedPhysicalTableWriter builder = new(file, dataBlockSize, bloomBlockSize);
 
-        PhysicalTableBuilder builder = new(file, dataBlockSize, bloomBlockSize);
-        SkipList.Iterator iter = _kvs.GetIterator();
-
-        for (iter.MoveToFirst(); iter.IsValid; iter.MoveNext())
-        {
-            builder.Add(iter.Key, iter.Value);
-        }
-
-        builder.Complete();
+        builder.Write(this);
     }
 
     public void Dispose()

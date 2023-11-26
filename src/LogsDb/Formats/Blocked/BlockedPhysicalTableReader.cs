@@ -1,15 +1,10 @@
-﻿using System.Diagnostics;
-using LogsDb.Collections;
+﻿using LogsDb.Collections;
 using LogsDb.IO;
-using LogsDb.Formats.Blocked;
 
-namespace LogsDb;
+namespace LogsDb.Formats.Blocked;
 
-[DebuggerDisplay("{DebuggerDisplay,nq}")]
-internal sealed class PhysicalTable : File, IDisposable
+internal sealed class BlockedPhysicalTableReader : IPhysicalTableReader
 {
-    private string DebuggerDisplay => $"{nameof(PhysicalTable)} = {Metadata.Path}";
-
     private bool _disposed;
 
     private FileStream? _file;
@@ -20,19 +15,17 @@ internal sealed class PhysicalTable : File, IDisposable
     private readonly IFileSystem _fs;
     private readonly IBlockCache _blockCache;
 
-    public PhysicalTable(IFileSystem fs, FileMetadata metadata, IBlockCache blockCache) : base(metadata)
+    private FileMetadata Metadata { get; } = default!; // FIXME.
+
+    public BlockedPhysicalTableReader(IFileSystem fs, IBlockCache cache)
     {
         _fs = fs;
-        _blockCache = blockCache;
+        _blockCache = cache;
     }
 
-    public void Open()
+    public Status Open()
     {
-        _file = _fs.OpenFile(Metadata.Path, FileMode.Open, FileAccess.Read, FileShare.None);
-
-        _footer = ReadFooter();
-        _filter = ReadFilter();
-        _index = ReadIndex();
+        return Status.Success;
     }
 
     public Status Get(ReadOnlySpan<byte> key, out ReadOnlySpan<byte> value)
@@ -69,11 +62,6 @@ internal sealed class PhysicalTable : File, IDisposable
         }
 
         return Status.NotFound;
-    }
-
-    public Iterator GetIterator()
-    {
-        return new Iterator(this);
     }
 
     public void Dispose()
@@ -133,33 +121,14 @@ internal sealed class PhysicalTable : File, IDisposable
         return new BloomFilter(_footer.Filter);
     }
 
-    private Footer ReadFooter()
+    public Iterator GetIterator()
     {
-        byte[] footerBuffer = new byte[4];
+        return new Iterator(this);
+    }
 
-        _file!.Seek(-sizeof(int), SeekOrigin.End);
-        _file.Read(footerBuffer);
-
-        BinaryDecoder footerDecoder = new(footerBuffer);
-        footerDecoder.UInt32(out uint footerLength);
-
-        byte[] footerFullBuffer = new byte[footerLength];
-
-        _file.Seek(-sizeof(int) - footerLength, SeekOrigin.End);
-        _file.Read(footerFullBuffer);
-
-        BinaryDecoder footerFullDecoder = new(footerFullBuffer);
-        footerFullDecoder.ByteArray(out ArraySegment<byte> filter);
-        footerFullDecoder.ByteArray(out ArraySegment<byte> firstKey);
-        footerFullDecoder.ByteArray(out ArraySegment<byte> lastKey);
-
-        return new Footer
-        {
-            Filter = filter.ToArray(),
-            FirstKey = firstKey.ToArray(),
-            LastKey = lastKey.ToArray(),
-            IndexBlock = BlockHandle.Read(ref footerFullDecoder)
-        };
+    IIterator IPhysicalTableReader.GetIterator()
+    {
+        return GetIterator();
     }
 
     private struct Footer
@@ -176,16 +145,16 @@ internal sealed class PhysicalTable : File, IDisposable
 
         private Block.Iterator? _dataIterator;
         private readonly Block.Iterator _indexIterator;
-        private readonly PhysicalTable _table;
+        private readonly BlockedPhysicalTableReader _reader;
 
         public ReadOnlySpan<byte> Key => _dataIterator!.Key;
         public ReadOnlySpan<byte> Value => _dataIterator!.Value;
         public bool IsValid => !_disposed && _indexIterator.IsValid;
 
-        public Iterator(PhysicalTable table)
+        public Iterator(BlockedPhysicalTableReader reader)
         {
-            _table = table;
-            _indexIterator = table._index!.GetIterator(); // FIXME: This can throw if we do not open the table.
+            _reader = reader;
+            _indexIterator = reader._index!.GetIterator(); // FIXME: This can throw if we do not open the table.
         }
 
         public void MoveToFirst()
@@ -223,7 +192,7 @@ internal sealed class PhysicalTable : File, IDisposable
             }
 
             BlockHandle dataHandle = new(_indexIterator.Value);
-            Block? dataBlock = _table.ReadBlock(dataHandle);
+            Block? dataBlock = _reader.ReadBlock(dataHandle);
 
             if (dataBlock == null)
             {

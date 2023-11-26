@@ -42,11 +42,13 @@ static void RunSuite<TDriver>() where TDriver : IBenchmarkDriver
 
 static BenchmarkResult Run<TDriver>(BenchmarkOptions options) where TDriver : IBenchmarkDriver
 {
+    const int MemTableSize = 1024 * 16;
+
     if (typeof(TDriver) == typeof(LogsDbBenchmarkDriver))
     {
         EvdbBenchmarkDriverOptions driverOptions = new()
         {
-            VirtualTableSize = 1024 * 1024 * 16
+            VirtualTableSize = MemTableSize
         };
 
         LogsDbBenchmarkDriver driver = new(driverOptions);
@@ -61,7 +63,7 @@ static BenchmarkResult Run<TDriver>(BenchmarkOptions options) where TDriver : IB
     {
         RocksDbBenchmarkDriverOptions driverOptions = new()
         {
-            WriteBufferSize = 1024 * 1024 * 16,
+            WriteBufferSize = MemTableSize,
 
             // Disable auto compaction for a more apples to apples comparison with evdb.
             //

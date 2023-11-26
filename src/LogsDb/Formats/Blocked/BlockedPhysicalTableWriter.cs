@@ -1,10 +1,9 @@
 ﻿using LogsDb.Collections;
-using LogsDb.Formatting;
 using LogsDb.IO;
 
-namespace LogsDb;
+namespace LogsDb.Formats.Blocked;
 
-internal sealed class PhysicalTableBuilder
+internal sealed class BlockedPhysicalTableWriter : IPhysicalTableWriter
 {
     private byte[]? _firstKey;
     private byte[]? _lastKey;
@@ -18,7 +17,7 @@ internal sealed class PhysicalTableBuilder
 
     public Stream BaseStream { get; }
 
-    public PhysicalTableBuilder(Stream stream, ulong dataBlockSize, ulong bloomBlockSize)
+    public BlockedPhysicalTableWriter(FileStream stream, ulong dataBlockSize, ulong bloomBlockSize)
     {
         BaseStream = stream;
 
@@ -32,7 +31,19 @@ internal sealed class PhysicalTableBuilder
         _index = new BlockBuilder();
     }
 
-    public void Add(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value)
+    public void Write(VirtualTable vtable)
+    {
+        VirtualTable.Iterator iter = vtable.GetIterator();
+
+        for (iter.MoveToFirst(); iter.IsValid; iter.MoveNext())
+        {
+            Add(iter.Key, iter.Value);
+        }
+
+        Complete();
+    }
+
+    private void Add(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value)
     {
         // TODO(Perf): We can avoid some allocations here.
         _lastKey = key.ToArray();
@@ -51,7 +62,7 @@ internal sealed class PhysicalTableBuilder
         }
     }
 
-    public void Complete()
+    private void Complete()
     {
         if (!_data.IsEmpty)
         {
@@ -84,5 +95,10 @@ internal sealed class PhysicalTableBuilder
         encoder.UInt32((uint)encoder.Length);
 
         BaseStream.Write(encoder.Span);
+    }
+
+    public void Dispose()
+    {
+        // Space
     }
 }

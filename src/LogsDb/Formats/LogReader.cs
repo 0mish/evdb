@@ -1,6 +1,6 @@
 ﻿using System.Text;
 
-namespace LogsDb.Formatting;
+namespace LogsDb.Formats;
 
 internal sealed class LogReader : IDisposable
 {

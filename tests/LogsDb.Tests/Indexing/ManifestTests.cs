@@ -1,4 +1,4 @@
-﻿using LogsDb.Formatting;
+﻿using LogsDb.Formats.Blocked;
 using LogsDb.IO;
 
 namespace LogsDb.Tests.Indexing;

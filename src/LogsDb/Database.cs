@@ -1,4 +1,4 @@
-﻿using LogsDb.Formatting;
+﻿using LogsDb.Formats.Blocked;
 
 namespace LogsDb;
 

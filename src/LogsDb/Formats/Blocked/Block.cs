@@ -1,6 +1,6 @@
 ﻿using LogsDb.IO;
 
-namespace LogsDb.Formatting;
+namespace LogsDb.Formats.Blocked;
 
 internal sealed class Block
 {

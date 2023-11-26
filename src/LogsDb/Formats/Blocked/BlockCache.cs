@@ -1,7 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 
-namespace LogsDb.Formatting;
+namespace LogsDb.Formats.Blocked;
 
 internal interface IBlockCache
 {

@@ -1,4 +1,5 @@
-﻿using LogsDb.IO;
+﻿using LogsDb.Formats;
+using LogsDb.IO;
 
 namespace LogsDb;
 

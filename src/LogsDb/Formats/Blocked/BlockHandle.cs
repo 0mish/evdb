@@ -2,7 +2,7 @@
 using System.Buffers.Binary;
 using System.Diagnostics.CodeAnalysis;
 
-namespace LogsDb.Formatting;
+namespace LogsDb.Formats.Blocked;
 
 internal struct BlockHandle : IEquatable<BlockHandle>
 {

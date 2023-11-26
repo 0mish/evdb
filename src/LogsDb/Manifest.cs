@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
-using LogsDb.Formatting;
+using LogsDb.Formats;
+using LogsDb.Formats.Blocked;
 using LogsDb.IO;
 
 namespace LogsDb;
